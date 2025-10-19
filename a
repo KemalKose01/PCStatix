@@ -1,0 +1,19 @@
+using LibreHardwareMonitor.Hardware;
+
+Computer computer = new Computer()
+{
+    IsCpuEnabled = true,
+    IsGpuEnabled = true
+};
+computer.Open();
+
+foreach (var hardware in computer.Hardware)
+{
+    hardware.Update();
+    Console.WriteLine(hardware.Name);
+    foreach (var sensor in hardware.Sensors)
+    {
+        Console.WriteLine($"{sensor.Name}: {sensor.Value}");
+    }
+}
+

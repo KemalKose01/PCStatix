@@ -1,2 +1,0 @@
-# PCStatix
-Proje
