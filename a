@@ -1,19 +1,109 @@
+MainWindow.xaml
+
+Window x:Class="PCStatix.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PC Statix" Height="400" Width="600">
+    <Grid>
+        <ListBox x:Name="HardwareList" FontFamily="Consolas" FontSize="14"/>
+    </Grid>
+</Window>
+------------------
+HardWareReader.cs
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using LibreHardwareMonitor.Hardware;
 
-Computer computer = new Computer()
-{
-    IsCpuEnabled = true,
-    IsGpuEnabled = true
-};
-computer.Open();
 
-foreach (var hardware in computer.Hardware)
+namespace PCStatix.Classes
 {
-    hardware.Update();
-    Console.WriteLine(hardware.Name);
-    foreach (var sensor in hardware.Sensors)
+    public class HardwareReader
     {
-        Console.WriteLine($"{sensor.Name}: {sensor.Value}");
+
+
+        public static List<string> TestHardware()
+        {
+            List<string> output = new List<string>();
+
+            Computer computer = new Computer
+            {
+                IsCpuEnabled = true,
+                IsGpuEnabled = true,
+                IsStorageEnabled = true,
+                IsMotherboardEnabled = true,
+                IsMemoryEnabled = true
+            };
+
+            computer.Open();
+
+            foreach (IHardware hardware in computer.Hardware)
+            {
+                hardware.Update();
+                output.Add($"[ {hardware.HardwareType} ] {hardware.Name}");
+
+                foreach (ISensor sensor in hardware.Sensors)
+                {
+                    if (sensor.SensorType == SensorType.Temperature && sensor.Value.HasValue)
+                        output.Add($"   {sensor.Name}: {sensor.Value.Value:F1} °C");
+                }
+            }
+
+            computer.Close();
+            return output;
+        }
+
+
     }
 }
 
+------------------------
+MainWindow.xaml.cs
+
+using System.Text;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Windows.Shapes;
+using LibreHardwareMonitor.Hardware;
+using System;
+using System.Threading.Tasks;
+using PCStatix.Classes;
+
+namespace PCStatix
+{
+
+    public partial class MainWindow : Window
+    {
+        public MainWindow()
+        {
+            InitializeComponent();
+            StartMonitoring();
+        }
+
+        private async void StartMonitoring()
+        {
+            while (true)
+            {
+                // Donanım okuma arka planda çalışsın
+                var data = await Task.Run(() => HardwareReader.TestHardware());
+
+                HardwareList.Items.Clear();
+                foreach (var line in data)
+                {
+                    HardwareList.Items.Add(line);
+                }
+
+                await Task.Delay(2000); // 2 saniyede bir güncelle
+            }
+        }
+    }
+}
