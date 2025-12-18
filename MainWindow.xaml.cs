@@ -7,7 +7,7 @@ using System.Windows;
 using System.Windows.Threading;
 using System.Linq;
 
-namespace DonanimBilgiWPF
+namespace PCStatixWPF
 {
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
