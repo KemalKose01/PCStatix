@@ -15,7 +15,7 @@
 
         <!-- HEADER -->
         <Border Grid.Row="0" Background="#1E3C78">
-            <TextBlock Text="Donanım Bilgi Uygulaması"
+            <TextBlock Text="PCStatix"
                        Foreground="White"
                        FontSize="18"
                        FontWeight="Bold"
