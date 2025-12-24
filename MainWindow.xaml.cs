@@ -37,11 +37,11 @@ namespace HardwareMonitor
 
             _computer = new Computer
             {
-                
+
                 IsCpuEnabled = true,
                 IsGpuEnabled = true,
                 IsMemoryEnabled = true
-               
+
 
             };
             _computer.Open();
@@ -92,6 +92,16 @@ namespace HardwareMonitor
 
 
 
+        private void TopBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left)
+                DragMove();
+        }
+
+        private void Close_Click(object sender, RoutedEventArgs e)
+        {
+            Close();
+        }
 
 
 
