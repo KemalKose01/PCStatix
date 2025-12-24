@@ -1,96 +1,236 @@
-using System;
-using System.ComponentModel;
+using LibreHardwareMonitor.Hardware;
+using System.Collections.Generic;
 using System.Diagnostics;
-using System.Management;
-using System.Runtime.CompilerServices;
-using System.Windows;
-using System.Windows.Threading;
+using System.IO;
 using System.Linq;
+using System.Text;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Windows.Shapes;
+using System.Windows.Threading;
 
-namespace PCStatixWPF
+namespace HardwareMonitor
 {
-    public partial class MainWindow : Window, INotifyPropertyChanged
+    public class CpuCoreModel
     {
-        DispatcherTimer timer;
-        PerformanceCounter cpuCounter;
-        PerformanceCounter[] gpuCounters;
-        Random rnd = new Random();
+        public string Name { get; set; } = "";
+        public string Load { get; set; } = "";
+        public string Clock { get; set; } = "";
 
-        double cpuUsage, gpuUsage, ramUsage;
+    }
 
-        public string CpuUsageText => $"%{(int)cpuUsage}";
-        public double CpuBarWidth => cpuUsage * 3;
-
-        public string GpuUsageText => $"%{(int)gpuUsage}";
-        public double GpuBarWidth => gpuUsage * 3;
-
-        public string RamUsageText => $"%{(int)ramUsage}";
-        public double RamBarWidth => ramUsage * 3;
-
-        // 🔥 SICAKLIKLAR (Simülasyon – görünür ve hatasız)
-        public string CpuTempText => $"CPU: {45 + (int)(cpuUsage / 4)} °C";
-        public string GpuTempText => $"GPU: {50 + (int)(gpuUsage / 3)} °C";
-        public string RamTempText => $"RAM: {35 + rnd.Next(0, 5)} °C";
-
-
+    public partial class MainWindow : Window
+    {
+        private readonly Computer _computer;
+        private readonly DispatcherTimer _timer;
+        private PerformanceCounter? _igpuCounter;
+        private List<PerformanceCounter> _igpuCounters = new();
         public MainWindow()
         {
             InitializeComponent();
-            DataContext = this;
 
-            cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
+            _computer = new Computer
+            {
+                
+                IsCpuEnabled = true,
+                IsGpuEnabled = true,
+                IsMemoryEnabled = true
+               
 
-            gpuCounters = new PerformanceCounterCategory("GPU Engine")
-                .GetInstanceNames()
-                .Where(n => n.EndsWith("engtype_3D"))
-                .Select(n => new PerformanceCounter("GPU Engine", "Utilization Percentage", n))
-                .ToArray();
+            };
+            _computer.Open();
 
-            timer = new DispatcherTimer
+            InitIGpuCounter();
+
+            _timer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(1)
             };
-            timer.Tick += Timer_Tick;
-            timer.Start();
-            
+            _timer.Tick += (_, _) => RefreshAll();
+            _timer.Start();
         }
 
-        private void Timer_Tick(object sender, EventArgs e)
+        // ---------------- iGPU (Task Manager mantığı) ----------------
+        private void InitIGpuCounter()
         {
-            cpuUsage = cpuCounter.NextValue();
-            gpuUsage = gpuCounters.Length > 0 ? gpuCounters.Sum(c => c.NextValue()) : 0;
-            ramUsage = GetRamUsage();
-
-            OnPropertyChanged(nameof(CpuUsageText));
-            OnPropertyChanged(nameof(CpuBarWidth));
-            OnPropertyChanged(nameof(GpuUsageText));
-            OnPropertyChanged(nameof(GpuBarWidth));
-            OnPropertyChanged(nameof(RamUsageText));
-            OnPropertyChanged(nameof(RamBarWidth));
-
-            OnPropertyChanged(nameof(CpuTempText));
-            OnPropertyChanged(nameof(GpuTempText));
-            OnPropertyChanged(nameof(RamTempText));
-        }
-
-        private double GetRamUsage()
-        {
-            var searcher = new ManagementObjectSearcher(
-                "SELECT TotalVisibleMemorySize, FreePhysicalMemory FROM Win32_OperatingSystem");
-
-            foreach (ManagementObject obj in searcher.Get())
+            try
             {
-                double total = Convert.ToDouble(obj["TotalVisibleMemorySize"]);
-                double free = Convert.ToDouble(obj["FreePhysicalMemory"]);
-                return ((total - free) / total) * 100;
+                var category = new PerformanceCounterCategory("GPU Engine");
+                var instances = category.GetInstanceNames();
+
+                _igpuCounters.Clear();
+
+                foreach (var name in instances)
+                {
+                    // Sadece 3D yükünü al
+                    if (name.ToLower().Contains("engtype_3d"))
+                    {
+                        _igpuCounters.Add(new PerformanceCounter(
+                            "GPU Engine",
+                            "Utilization Percentage",
+                            name));
+                    }
+                }
+
+                // Counter'ı ısıt (ilk okuma her zaman 0 gelir)
+                foreach (var c in _igpuCounters)
+                    c.NextValue();
+
+                TxtIGpuName.Text = "Integrated GPU";
             }
-            return 0;
+            catch
+            {
+                TxtIGpuName.Text = "iGPU bulunamadı";
+            }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        void OnPropertyChanged([CallerMemberName] string prop = null)
+
+
+
+
+
+
+
+        // ---------------- Refresh ----------------
+        private void RefreshAll()
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
+            ReadCpu();
+            ReadDGpu();
+            ReadMemory();
+            ReadDisk();
+            ReadIGpu();
+        }
+
+        // ---------------- CPU ----------------
+        private void ReadCpu()
+        {
+            foreach (var hw in _computer.Hardware.Where(h => h.HardwareType == HardwareType.Cpu))
+            {
+                hw.Update();
+                TxtCpuName.Text = hw.Name;
+
+                var cores = new List<CpuCoreModel>();
+
+                // Clock sensörleri
+                var clocks = hw.Sensors
+                    .Where(s => s.SensorType == SensorType.Clock && s.Name.Contains("Core"))
+                    .OrderBy(s => s.Name)
+                    .ToList();
+
+                // Load sensörleri
+                var loads = hw.Sensors
+                    .Where(s => s.SensorType == SensorType.Load && s.Name.Contains("Core"))
+                    .OrderBy(s => s.Name)
+                    .ToList();
+
+                for (int i = 0; i < clocks.Count; i++)
+                {
+                    var c = clocks[i];
+                    var l = loads.Count > i ? loads[i] : null;
+
+                    cores.Add(new CpuCoreModel
+                    {
+                        Name = c.Name, // Core #1 gibi
+                        Load = l?.Value != null ? $"%{l.Value:0}" : "%--",
+                        Clock = c.Value != null ? $"{c.Value:0} MHz" : "--"
+                    });
+                }
+
+                IcCpuCores.ItemsSource = cores;
+
+                // Paket sıcaklığı
+                var pkgTemp = hw.Sensors.FirstOrDefault(s =>
+                    s.SensorType == SensorType.Temperature &&
+                    (s.Name.Contains("Package") || s.Name.Contains("Tctl")));
+
+                TxtCpuTemp.Text = pkgTemp?.Value != null
+                    ? $"CPU Sıcaklığı: {pkgTemp.Value:0}°C"
+                    : "CPU Sıcaklığı: --";
+            }
+        }
+
+
+        // ---------------- dGPU ----------------
+        private void ReadDGpu()
+        {
+            foreach (var hw in _computer.Hardware.Where(h =>
+                     h.HardwareType == HardwareType.GpuNvidia ||
+                     h.HardwareType == HardwareType.GpuAmd))
+            {
+                hw.Update();
+                TxtDGpuName.Text = hw.Name;
+
+                var temp = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Temperature);
+                var load = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Load);
+
+                TxtDGpuTemp.Text = temp?.Value != null ? $"Sıcaklık: {temp.Value:0}°C" : "Sıcaklık: --";
+                TxtDGpuLoad.Text = load?.Value != null ? $"Kullanım: %{load.Value:0}" : "Kullanım: --";
+            }
+        }
+
+        // ---------------- iGPU ----------------
+        private void ReadIGpu()
+        {
+            if (_igpuCounters.Count == 0)
+            {
+                TxtIGpuLoad.Text = "Kullanım: %0";
+                return;
+            }
+
+            float total = 0;
+
+            foreach (var c in _igpuCounters)
+                total += c.NextValue();
+
+            if (total > 100)
+                total = 100;
+
+            TxtIGpuLoad.Text = $"Kullanım: %{total:0}";
+        }
+
+
+
+
+        // ---------------- RAM ----------------
+        private void ReadMemory()
+        {
+            foreach (var hw in _computer.Hardware.Where(h => h.HardwareType == HardwareType.Memory))
+            {
+                hw.Update();
+                var used = hw.Sensors.FirstOrDefault(s => s.Name == "Memory Used");
+                var avail = hw.Sensors.FirstOrDefault(s => s.Name == "Memory Available");
+
+                if (used?.Value == null || avail?.Value == null) return;
+
+                double usedGb = used.Value.Value;
+                double totalGb = usedGb + avail.Value.Value;
+
+                TxtRamInfo.Text = $"RAM: {usedGb:0.0} GB / {totalGb:0.0} GB";
+                PbRam.Value = (usedGb / totalGb) * 100;
+            }
+        }
+
+        // ---------------- Disk ----------------
+        private void ReadDisk()
+        {
+            try
+            {
+                var d = new DriveInfo("C");
+                if (!d.IsReady) return;
+
+                double total = d.TotalSize / 1073741824.0;
+                double used = (d.TotalSize - d.AvailableFreeSpace) / 1073741824.0;
+
+                TxtDiskInfo.Text = $"Sürücü (C:): {used:0} GB / {total:0} GB";
+                PbDisk.Value = (used / total) * 100;
+            }
+            catch { }
         }
     }
 }
