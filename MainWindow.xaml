@@ -4,23 +4,20 @@
         xmlns:local="clr-namespace:HardwareMonitor"
         Title="Hardware Monitor"
         Width="460" Height="720"
-
         WindowStyle="None"
         AllowsTransparency="True"
         Background="#80121212">
 
     <Border CornerRadius="12" BorderBrush="#40FFFFFF" BorderThickness="1">
-
         <Grid>
 
             <!-- Üst bar -->
             <Grid Background="#101010" Height="32" VerticalAlignment="Top" MouseLeftButtonDown="TopBar_MouseLeftButtonDown">
-                <TextBlock Text="PCStatix" 
+                <TextBlock Text="PCStatix"  
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
                            Foreground="Cyan"
                            FontWeight="Bold"/>
-
                 <Button Content="X"
                         Width="30"
                         Height="22"
@@ -30,7 +27,7 @@
                         Click="Close_Click"/>
             </Grid>
 
-
+            <!-- İçerik -->
             <ScrollViewer Margin="0,32,0,0" VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="15">
 
@@ -46,7 +43,6 @@
                                         <StackPanel Margin="10">
                                             <TextBlock x:Name="TxtCpuName" Foreground="Yellow" FontWeight="Bold"/>
                                             <TextBlock x:Name="TxtCpuTemp" Foreground="OrangeRed" Margin="0,5,0,5"/>
-
                                             <ItemsControl x:Name="IcCpuCores">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
@@ -56,7 +52,6 @@
                                                                 <ColumnDefinition Width="1*"/>
                                                                 <ColumnDefinition Width="1.5*"/>
                                                             </Grid.ColumnDefinitions>
-
                                                             <TextBlock Text="{Binding Name}" Foreground="White"/>
                                                             <TextBlock Text="{Binding Load}" Foreground="Lime" Grid.Column="1" HorizontalAlignment="Right"/>
                                                             <TextBlock Text="{Binding Clock}" Foreground="Cyan" Grid.Column="2" HorizontalAlignment="Right"/>
@@ -89,15 +84,25 @@
                                         <StackPanel Margin="10">
                                             <TextBlock x:Name="TxtRamInfo" Foreground="Yellow"/>
                                             <ProgressBar x:Name="PbRam" Height="12" Margin="0,5" Maximum="100"/>
-
                                             <TextBlock x:Name="TxtDiskInfo" Foreground="White" Margin="0,10,0,0"/>
                                             <ProgressBar x:Name="PbDisk" Height="12" Margin="0,5" Maximum="100"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                    <GroupBox>
+                                        <StackPanel>
+                                            <Button Content="Verileri Çek" Width="120" Height="30"
+HorizontalAlignment="Left" VerticalAlignment="Top"
+Margin="10" Click="BtnVeriCek_Click"/>
+
+                                            <DataGrid x:Name="dgVeriler" Margin="10,50,10,10"
+  AutoGenerateColumns="True"/>
                                         </StackPanel>
                                     </GroupBox>
 
                                 </StackPanel>
                             </ScrollViewer>
                         </TabItem>
+                        
 
                         <!-- GPU TEST -->
                         <TabItem Header="GPU Test">
@@ -105,13 +110,20 @@
                         </TabItem>
 
                     </TabControl>
+                    
+
 
                 </StackPanel>
+                
             </ScrollViewer>
+            
+            
+
+
+
+
+
 
         </Grid>
     </Border>
 </Window>
-
-
-
