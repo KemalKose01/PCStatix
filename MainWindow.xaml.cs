@@ -14,9 +14,101 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
 
 namespace HardwareMonitor
 {
+    public class PcStatixContext : DbContext
+    {
+        public DbSet<IdTable> IdTable { get; set; }
+        public DbSet<EkranKarti> EkranKarti { get; set; }
+        public DbSet<Islemci> Islemci { get; set; }
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            optionsBuilder.UseSqlServer(
+    "Server=DESKTOP-OGL41SD;Database=pcstatix;Trusted_Connection=True;TrustServerCertificate=True;");
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<IdTable>()
+                .ToTable("id_table")
+                .HasKey(i => i.Id);
+
+            modelBuilder.Entity<EkranKarti>()
+                .ToTable("ekran_karti")
+                .HasKey(ekran => ekran.Id);
+
+            modelBuilder.Entity<Islemci>()
+                .ToTable("islemci")
+                .HasKey(cpu => cpu.id);
+
+            modelBuilder.Entity<EkranKarti>()
+                .HasOne(ekran => ekran.IdTable)
+                .WithOne(idt => idt.EkranKarti)
+                .HasForeignKey<EkranKarti>(ekran => ekran.Id);
+
+            modelBuilder.Entity<Islemci>()
+                .HasOne(cpu => cpu.IdTable)
+                .WithOne(idt => idt.Islemci)
+                .HasForeignKey<Islemci>(cpu => cpu.id);
+        }
+    }
+
+    [Table("id_table")]
+    public class IdTable
+    {
+        [Key]
+        [Column("id")]
+        public int Id { get; set; }
+
+        public EkranKarti EkranKarti { get; set; }
+        public Islemci Islemci { get; set; }
+    }
+
+    [Table("ekran_karti")]
+    public class EkranKarti
+    {
+        [Key]
+        [Column("id")]
+        public int Id { get; set; }
+
+        [Column("ekrank_adi")]
+        public string EkranAdi { get; set; }
+
+        [Column("ekrank_sicaklik")]
+        public int EkranSicaklik { get; set; }
+
+        public IdTable IdTable { get; set; }
+    }
+
+    [Table("islemci")]
+    public class Islemci
+    {
+        [Key]
+        [Column("id")]
+        public int id { get; set; }
+
+        [Column("islemci_adi")]
+        public string islemciAdi { get; set; }
+
+        [Column("islemci_sicaklik")]
+        public int islemciSicaklik { get; set; }
+
+        public IdTable IdTable { get; set; }
+    }
+
+    
+
+
+
+
+    /// <summary>
+    /// /------------------------------------------------------------------------/
+    /// </summary>
     public class CpuCoreModel
     {
         public string Name { get; set; } = "";
@@ -54,6 +146,24 @@ namespace HardwareMonitor
             };
             _timer.Tick += (_, _) => RefreshAll();
             _timer.Start();
+        }
+        private void BtnVeriCek_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                using (var db = new PcStatixContext())
+                {
+                    // Örnek: islemci tablosundaki verileri çekelim
+                    var islemciler = db.Islemci.ToList();
+
+                    // DataGrid'e basıyoruz
+                    dgVeriler.ItemsSource = islemciler;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         // ---------------- iGPU (Task Manager mantığı) ----------------
