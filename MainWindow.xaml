@@ -1,83 +1,117 @@
 <Window x:Class="HardwareMonitor.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Hardware Monitor Pro"
+        xmlns:local="clr-namespace:HardwareMonitor"
+        Title="Hardware Monitor"
         Width="460" Height="720"
-        Background="#121212">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="15">
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="#80121212">
 
-            <TextBlock Text="PCStatix"
-                       Foreground="Cyan"
-                       FontSize="20"
-                       FontWeight="Bold"
-                       HorizontalAlignment="Center"
-                       Margin="0,0,0,15"/>
+    <Border CornerRadius="12" BorderBrush="#40FFFFFF" BorderThickness="1">
 
-            <!-- CPU -->
-            <GroupBox Header="İşlemci (CPU)" BorderBrush="Cyan" Foreground="White">
-                <StackPanel Margin="10">
-                    <TextBlock x:Name="TxtCpuName"
-                               Foreground="Yellow"
-                               FontWeight="Bold"
-                               Margin="0,0,0,5"/>
+        <Grid>
+
+            <!-- Üst bar -->
+            <Grid Background="#101010" Height="32" VerticalAlignment="Top" MouseLeftButtonDown="TopBar_MouseLeftButtonDown">
+                <TextBlock Text="PCStatix" 
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Foreground="Cyan"
+                           FontWeight="Bold"/>
+
+                <Button Content="X"
+                        Width="30"
+                        Height="22"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Margin="0,0,5,0"
+                        Click="Close_Click"/>
+            </Grid>
 
 
-                    <TextBlock x:Name="TxtCpuTemp"
-           Foreground="OrangeRed"
-           Margin="0,5,0,5"/>
+            <ScrollViewer Margin="0,32,0,0" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="15">
 
-                    <ItemsControl x:Name="IcCpuCores">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="2*"/>
-                                        <ColumnDefinition Width="1*"/>
-                                        <ColumnDefinition Width="1.5*"/>
-                                    </Grid.ColumnDefinitions>
+                    <TabControl Background="Transparent" BorderThickness="0">
 
-                                    <TextBlock Text="{Binding Name}" Foreground="White"/>
-                                    <TextBlock Text="{Binding Load}" Foreground="Lime" Grid.Column="1" HorizontalAlignment="Right"/>
-                                    <TextBlock Text="{Binding Clock}" Foreground="Cyan" Grid.Column="2" HorizontalAlignment="Right"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                        <!-- Monitor -->
+                        <TabItem Header="Monitor">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="15">
+
+                                    <!-- CPU -->
+                                    <GroupBox Header="İşlemci (CPU)" BorderBrush="Cyan" Foreground="White">
+                                        <StackPanel Margin="10">
+                                            <TextBlock x:Name="TxtCpuName" Foreground="Yellow" FontWeight="Bold"/>
+                                            <TextBlock x:Name="TxtCpuTemp" Foreground="OrangeRed" Margin="0,5,0,5"/>
+
+                                            <ItemsControl x:Name="IcCpuCores">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,2">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="2*"/>
+                                                                <ColumnDefinition Width="1*"/>
+                                                                <ColumnDefinition Width="1.5*"/>
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <TextBlock Text="{Binding Name}" Foreground="White"/>
+                                                            <TextBlock Text="{Binding Load}" Foreground="Lime" Grid.Column="1" HorizontalAlignment="Right"/>
+                                                            <TextBlock Text="{Binding Clock}" Foreground="Cyan" Grid.Column="2" HorizontalAlignment="Right"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <!-- iGPU -->
+                                    <GroupBox Header="Dahili GPU (iGPU)" BorderBrush="DodgerBlue" Foreground="White" Margin="0,10,0,0">
+                                        <StackPanel Margin="10">
+                                            <TextBlock x:Name="TxtIGpuName" Foreground="Yellow" FontWeight="Bold"/>
+                                            <TextBlock x:Name="TxtIGpuLoad" Foreground="White"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <!-- dGPU -->
+                                    <GroupBox Header="Harici GPU (dGPU)" BorderBrush="Lime" Foreground="White" Margin="0,10,0,0">
+                                        <StackPanel Margin="10">
+                                            <TextBlock x:Name="TxtDGpuName" Foreground="Yellow" FontWeight="Bold"/>
+                                            <TextBlock x:Name="TxtDGpuTemp" Foreground="White"/>
+                                            <TextBlock x:Name="TxtDGpuLoad" Foreground="White"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <!-- RAM / Disk -->
+                                    <GroupBox Header="Bellek ve Depolama" BorderBrush="Orange" Foreground="White" Margin="0,10,0,0">
+                                        <StackPanel Margin="10">
+                                            <TextBlock x:Name="TxtRamInfo" Foreground="Yellow"/>
+                                            <ProgressBar x:Name="PbRam" Height="12" Margin="0,5" Maximum="100"/>
+
+                                            <TextBlock x:Name="TxtDiskInfo" Foreground="White" Margin="0,10,0,0"/>
+                                            <ProgressBar x:Name="PbDisk" Height="12" Margin="0,5" Maximum="100"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <!-- GPU TEST -->
+                        <TabItem Header="GPU Test">
+                            <local:GpuStressTest/>
+                        </TabItem>
+
+                    </TabControl>
+
                 </StackPanel>
-            </GroupBox>
+            </ScrollViewer>
 
-            <!-- iGPU -->
-            <GroupBox Header="Dahili GPU (iGPU)" BorderBrush="DodgerBlue" Foreground="White" Margin="0,10,0,0">
-                <StackPanel Margin="10">
-                    <TextBlock x:Name="TxtIGpuName" Foreground="Yellow" FontWeight="Bold"/>
-                    <TextBlock x:Name="TxtIGpuLoad" Foreground="White" Margin="0,5,0,0"/>
-                </StackPanel>
-            </GroupBox>
-
-            <!-- dGPU -->
-            <GroupBox Header="Harici GPU (dGPU)" BorderBrush="Lime" Foreground="White" Margin="0,10,0,0">
-                <StackPanel Margin="10">
-                    <TextBlock x:Name="TxtDGpuName" Foreground="Yellow" FontWeight="Bold"/>
-                    <TextBlock x:Name="TxtDGpuTemp" Foreground="White"/>
-                    <TextBlock x:Name="TxtDGpuLoad" Foreground="White"/>
-                </StackPanel>
-            </GroupBox>
-
-            <!-- RAM / Disk -->
-            <GroupBox Header="Bellek ve Depolama" BorderBrush="Orange" Foreground="White" Margin="0,10,0,0">
-                <StackPanel Margin="10">
-                    <TextBlock x:Name="TxtRamInfo" Foreground="Yellow"/>
-                    <ProgressBar x:Name="PbRam" Height="12" Margin="0,5" Maximum="100"/>
-
-                    <TextBlock x:Name="TxtDiskInfo" Foreground="White" Margin="0,10,0,0"/>
-                    <ProgressBar x:Name="PbDisk" Height="12" Margin="0,5" Maximum="100"/>
-                </StackPanel>
-            </GroupBox>
-
-        </StackPanel>
-    </ScrollViewer>
+        </Grid>
+    </Border>
 </Window>
+
 
 
