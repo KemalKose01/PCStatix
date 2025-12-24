@@ -1,0 +1,14 @@
+﻿<UserControl x:Class="HardwareMonitor.GpuStressTest"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel Margin="20">
+        <TextBlock Text="GPU Stress Test" 
+                   FontSize="20" 
+                   Foreground="Lime"/>
+
+        <Button x:Name="BtnStart" Content="Başlat" Margin="0,10,0,0" Height="30"/>
+        <Button x:Name="BtnStop" Content="Durdur" Margin="0,10,0,0" Height="30"/>
+    </StackPanel>
+
+</UserControl>
