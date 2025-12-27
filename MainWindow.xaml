@@ -104,6 +104,12 @@
                             <local:GpuStressTest/>
                         </TabItem>
 
+
+                        <TabItem Header="CPU Test">
+                            <local:CpuStressTest/>
+                        </TabItem>
+
+
                     </TabControl>
 
                 </StackPanel>
