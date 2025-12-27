@@ -1,4 +1,4 @@
-<UserControl x:Class="HardwareMonitor.CpuStressTest"
+<UserControl x:Class="HardwareMonitor.GpuStressTest"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -45,9 +45,9 @@
 
         <Border Grid.Row="0" Margin="0,30,0,10" Padding="10">
             <StackPanel>
-                <TextBlock Text="CPU STRESS TEST" Foreground="#3498db" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center">
+                <TextBlock Text="GPU STRESS TEST" Foreground="#e74c3c" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center">
                     <TextBlock.Effect>
-                        <DropShadowEffect Color="#3498db" BlurRadius="10" ShadowDepth="0" Opacity="0.4"/>
+                        <DropShadowEffect Color="#e74c3c" BlurRadius="10" ShadowDepth="0" Opacity="0.4"/>
                     </TextBlock.Effect>
                 </TextBlock>
             </StackPanel>
@@ -67,15 +67,15 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="İŞLEMCİ ISI" Foreground="#95a5a6" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBlock x:Name="TxtCpuTemp" Text="--°C" FontSize="42" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center"/>
+                        <TextBlock Text="SICAKLIK" Foreground="#95a5a6" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="TxtCurrentTemp" Text="--°C" FontSize="42" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center"/>
                     </StackPanel>
 
                     <Border Grid.Column="1" Width="1" Background="#333" Margin="20,5"/>
 
                     <StackPanel Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="İŞLEMCİ YÜKÜ" Foreground="#95a5a6" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,5"/>
-                        <TextBlock x:Name="TxtCpuLoad" Text="%0" FontSize="42" Foreground="#3498db" FontWeight="Bold" HorizontalAlignment="Center"/>
+                        <TextBlock Text="GPU YÜKÜ" Foreground="#95a5a6" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="TxtCurrentLoad" Text="%0" FontSize="42" Foreground="#e74c3c" FontWeight="Bold" HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -83,11 +83,11 @@
 
         <StackPanel Grid.Row="2" Margin="40,0,40,40">
             <Grid Margin="0,0,0,15">
-                <TextBlock Text="Test İlerlemesi" Foreground="#7f8c8d" FontSize="12" HorizontalAlignment="Left" VerticalAlignment="Bottom"/>
-                <TextBlock x:Name="TxtCpuTimer" Text="60s" Foreground="White" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                <TextBlock Text="İlerleme" Foreground="#7f8c8d" FontSize="12" HorizontalAlignment="Left" VerticalAlignment="Bottom"/>
+                <TextBlock x:Name="TxtTimer" Text="60s" Foreground="White" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
             </Grid>
 
-            <ProgressBar x:Name="CpuProgressBar" Height="8" Minimum="0" Maximum="60" BorderThickness="0" Background="#333" Foreground="#3498db">
+            <ProgressBar x:Name="TestProgressBar" Height="8" Minimum="0" Maximum="60" BorderThickness="0" Background="#333" Foreground="#e74c3c">
                 <ProgressBar.Clip>
                     <RectangleGeometry Rect="0,0,520,8" RadiusX="4" RadiusY="4"/>
                 </ProgressBar.Clip>
