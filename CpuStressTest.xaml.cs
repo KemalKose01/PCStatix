@@ -11,7 +11,7 @@ namespace HardwareMonitor
     public partial class CpuStressTest : UserControl
     {
         private Computer _computer;
-        private CancellationTokenSource _cts;
+        private CancellationTokenSource _cts = new CancellationTokenSource(); // Initialize _cts to avoid nullability issues  
         private bool _isRunning = false;
 
         public CpuStressTest()
@@ -28,10 +28,10 @@ namespace HardwareMonitor
             BtnStart.IsEnabled = false;
             BtnStop.IsEnabled = true;
 
-            // Arka planda CPU'yu zorla
+            // Arka planda CPU'yu zorla  
             _ = Task.Run(() => RunCpuLoad(_cts.Token), _cts.Token);
 
-            // UI Güncelleme Döngüsü
+            // UI Güncelleme Döngüsü  
             try
             {
                 for (int i = 0; i <= 60; i++)
@@ -48,15 +48,16 @@ namespace HardwareMonitor
 
         private void RunCpuLoad(CancellationToken token)
         {
-            // Tüm çekirdekleri (Logical Processors) kullan
+            // Tüm çekirdekleri (Logical Processors) kullan  
             var options = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
 
             try
             {
-                Parallel.For(0, Environment.ProcessorCount, options, i => {
+                Parallel.For(0, Environment.ProcessorCount, options, i =>
+                {
                     while (!token.IsCancellationRequested)
                     {
-                        // Matematiksel yoğunluk oluştur (Isınmayı sağlar)
+                        // Matematiksel yoğunluk oluştur (Isınmayı sağlar)  
                         double val = Math.Sqrt(Math.Pow(123.45, 67.89));
                     }
                 });
