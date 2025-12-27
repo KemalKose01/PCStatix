@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using LibreHardwareMonitor.Hardware;
 
 namespace HardwareMonitor
@@ -12,7 +13,8 @@ namespace HardwareMonitor
     {
         private Computer _computer;
         private CancellationTokenSource _cts;
-        private bool _isRunning = false;
+        private float _maxTemp = 0;
+        private float _maxLoad = 0; // Maksimum yük takibi için
 
         public CpuStressTest()
         {
@@ -23,41 +25,44 @@ namespace HardwareMonitor
 
         private async void BtnStart_Click(object sender, RoutedEventArgs e)
         {
-            _isRunning = true;
+            _maxTemp = 0;
+            _maxLoad = 0;
             _cts = new CancellationTokenSource();
+
             BtnStart.IsEnabled = false;
             BtnStop.IsEnabled = true;
+            CpuResultCard.Visibility = Visibility.Collapsed;
+            CpuProgressBar.Foreground = new SolidColorBrush(Color.FromRgb(243, 156, 18));
 
-            // Arka planda CPU'yu zorla
             _ = Task.Run(() => RunCpuLoad(_cts.Token), _cts.Token);
 
-            // UI Güncelleme Döngüsü
             try
             {
-                for (int i = 0; i <= 60; i++)
+                for (int i = 0; i <= 20; i++)
                 {
                     if (_cts.Token.IsCancellationRequested) break;
+
                     CpuProgressBar.Value = i;
-                    TxtCpuTimer.Text = $"Kalan Süre: {60 - i}s";
+                    TxtCpuTimer.Text = $"Kalan Süre: {20 - i}s";
                     UpdateCpuSensors();
                     await Task.Delay(1000);
                 }
             }
-            finally { StopTest(); }
+            finally
+            {
+                StopTest();
+            }
         }
 
         private void RunCpuLoad(CancellationToken token)
         {
-            // Tüm çekirdekleri (Logical Processors) kullan
             var options = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
-
             try
             {
                 Parallel.For(0, Environment.ProcessorCount, options, i => {
                     while (!token.IsCancellationRequested)
                     {
-                        // Matematiksel yoğunluk oluştur (Isınmayı sağlar)
-                        double val = Math.Sqrt(Math.Pow(123.45, 67.89));
+                        Math.Sqrt(Math.Pow(123.45, 67.89));
                     }
                 });
             }
@@ -66,28 +71,48 @@ namespace HardwareMonitor
 
         private void UpdateCpuSensors()
         {
-            foreach (var hardware in _computer.Hardware)
+            foreach (var hardware in _computer.Hardware.Where(h => h.HardwareType == HardwareType.Cpu))
             {
-                if (hardware.HardwareType == HardwareType.Cpu)
-                {
-                    hardware.Update();
-                    foreach (var sensor in hardware.Sensors)
+                hardware.Update();
+
+                var tempSensor = hardware.Sensors.FirstOrDefault(s =>
+                    s.SensorType == SensorType.Temperature &&
+                    (s.Name.Contains("Package") || s.Name.Contains("Tctl") || s.Name.Contains("Core (Max)")));
+
+                var loadSensor = hardware.Sensors.FirstOrDefault(s =>
+                    s.SensorType == SensorType.Load && s.Name.Contains("Total"));
+
+                Dispatcher.Invoke(() => {
+                    if (tempSensor?.Value != null)
                     {
-                        if (sensor.SensorType == SensorType.Temperature && sensor.Name.Contains("Package"))
-                            Dispatcher.Invoke(() => TxtCpuTemp.Text = $"{sensor.Value:0.0}°C");
-                        if (sensor.SensorType == SensorType.Load && sensor.Name.Contains("Total"))
-                            Dispatcher.Invoke(() => TxtCpuLoad.Text = $"Yük: %{sensor.Value:0.0}");
+                        float currentTemp = tempSensor.Value.Value;
+                        if (currentTemp > _maxTemp) _maxTemp = currentTemp;
+                        TxtCpuTemp.Text = $"{currentTemp:0.0}°C";
                     }
-                }
+                    if (loadSensor?.Value != null)
+                    {
+                        float currentLoad = loadSensor.Value.Value;
+                        if (currentLoad > _maxLoad) _maxLoad = currentLoad; // En yüksek yükü kaydet
+                        TxtCpuLoad.Text = $"Yük: %{currentLoad:0}";
+                    }
+                });
             }
         }
 
         private void StopTest()
         {
-            _isRunning = false;
             _cts?.Cancel();
             BtnStart.IsEnabled = true;
             BtnStop.IsEnabled = false;
+
+            Dispatcher.Invoke(() => {
+                CpuResultCard.Visibility = Visibility.Visible;
+                // İstediğin rapor formatı:
+                TxtCpuFinalResult.Text = $"Maks Sıcaklık: {_maxTemp:0.0}°C | Maks Kullanım Oranı: %{_maxLoad:0}";
+
+                CpuProgressBar.Foreground = Brushes.Lime;
+                TxtCpuTimer.Text = "Test Tamamlandı";
+            });
         }
 
         private void BtnStop_Click(object sender, RoutedEventArgs e) => StopTest();
