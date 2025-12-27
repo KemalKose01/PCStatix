@@ -141,7 +141,43 @@ namespace HardwareMonitor
 
             if (showReport && _temps.Count > 0)
             {
-                MessageBox.Show($"Test Tamamlandı!\nMaksimum Sıcaklık: {_temps.Max()}°C\nMaksimum Yük: %{_loads.Max()}", "Rapor");
+                // Maksimum değerleri alıyoruz
+                double maxTemp = _temps.Max();
+                double maxLoad = _loads.Max();
+
+                string durum;
+                string teşhis;
+
+                // Sıcaklık Analiz Mantığı
+                if (maxTemp < 80)
+                {
+                    durum = "TAMİR GEREKLİ DEĞİL";
+                    teşhis = "Kartınız sağlıklı çalışıyor. Soğutma performansı yeterli.";
+                }
+                else if (maxTemp >= 80 && maxTemp < 90)
+                {
+                    durum = "TAMİR GEREKLİ DEĞİL (UYARI)";
+                    teşhis = "Sıcaklık yüksek. Kasa içi hava akışını kontrol edin veya fanları temizleyin.";
+                }
+                else if (maxTemp >= 90 && maxTemp < 100)
+                {
+                    durum = "TAMİR GEREKLİ";
+                    teşhis = "Kritik Sıcaklık! Muhtemelen TERMAL MACUN kurumuş veya FANLARDA devir kaybı var.";
+                }
+                else // 100 derece ve üzeri
+                {
+                    durum = "ACİL TAMİR GEREKLİ";
+                    teşhis = "Tehlikeli Seviye! TERMAL PEDLER özelliğini yitirmiş olabilir veya SOĞUTUCU BLOK tam temas etmiyor.";
+                }
+
+                // Rapor Mesajını Oluşturma
+                string raporMesaji = $"--- GPU ANALİZ RAPORU ---\n\n" +
+                                     $"Maksimum Sıcaklık: {maxTemp}°C\n" +
+                                     $"Maksimum Yük: %{maxLoad}\n\n" +
+                                     $"DURUM: {durum}\n\n" +
+                                     $"TEKNİK ANALİZ:\n{teşhis}";
+
+                MessageBox.Show(raporMesaji, "Test Tamamlandı", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
