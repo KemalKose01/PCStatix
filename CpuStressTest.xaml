@@ -3,8 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d"
-             d:DesignHeight="450" d:DesignWidth="600">
+             mc:Ignorable="d" d:DesignHeight="450" d:DesignWidth="600">
 
     <UserControl.Resources>
         <Style x:Key="ModernButton" TargetType="Button">
@@ -15,7 +14,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" CornerRadius="20" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="1">
+                        <Border x:Name="border" CornerRadius="20" Background="{TemplateBinding Background}" BorderThickness="1" BorderBrush="Transparent">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -58,7 +57,6 @@
                 <Border.Effect>
                     <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
                 </Border.Effect>
-
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -66,14 +64,14 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="0" HorizontalAlignment="Center">
                         <TextBlock Text="İŞLEMCİ ISI" Foreground="#95a5a6" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBlock x:Name="TxtCpuTemp" Text="--°C" FontSize="42" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center"/>
                     </StackPanel>
 
                     <Border Grid.Column="1" Width="1" Background="#333" Margin="20,5"/>
 
-                    <StackPanel Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="2" HorizontalAlignment="Center">
                         <TextBlock Text="İŞLEMCİ YÜKÜ" Foreground="#95a5a6" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,5"/>
                         <TextBlock x:Name="TxtCpuLoad" Text="%0" FontSize="42" Foreground="#3498db" FontWeight="Bold" HorizontalAlignment="Center"/>
                     </StackPanel>
@@ -100,11 +98,8 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <Button x:Name="BtnStart" Grid.Column="0" Content="TESTİ BAŞLAT" Click="BtnStart_Click" 
-                        Height="45" Background="#27ae60" Style="{StaticResource ModernButton}"/>
-
-                <Button x:Name="BtnStop" Grid.Column="2" Content="TESTİ DURDUR" Click="BtnStop_Click" 
-                        Height="45" Background="#c0392b" IsEnabled="False" Style="{StaticResource ModernButton}"/>
+                <Button x:Name="BtnStart" Grid.Column="0" Content="TESTİ BAŞLAT" Click="BtnStart_Click" Height="45" Background="#27ae60" Style="{StaticResource ModernButton}"/>
+                <Button x:Name="BtnStop" Grid.Column="2" Content="TESTİ DURDUR" Click="BtnStop_Click" Height="45" Background="#c0392b" IsEnabled="False" Style="{StaticResource ModernButton}"/>
             </Grid>
         </StackPanel>
     </Grid>
