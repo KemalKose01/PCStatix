@@ -30,7 +30,6 @@ namespace HardwareMonitor
         {
             _cts = new CancellationTokenSource();
 
-            // UI ve Veri Hazırlığı
             BtnStart.IsEnabled = false;
             BtnStop.IsEnabled = true;
             GpuResultCard.Visibility = Visibility.Collapsed;
@@ -44,7 +43,8 @@ namespace HardwareMonitor
             {
                 for (int i = 0; i <= 60; i++)
                 {
-                    if (_cts.Token.IsCancellationRequested) break;
+                    // CancellationToken iptal edildiyse UI döngüsünden de çık
+                    if (_cts.IsCancellationRequested) break;
 
                     TestProgressBar.Value = i;
                     TxtTimer.Text = $"{60 - i}s";
@@ -62,37 +62,55 @@ namespace HardwareMonitor
 
         private void RunD3D11Stress(CancellationToken token)
         {
+            Device device = null;
             try
             {
-                using (var device = new Device(DriverType.Hardware, DeviceCreationFlags.None))
-                {
-                    var context = device.ImmediateContext;
-                    int bufferSize = 128 * 1024 * 1024;
-                    var bufferDesc = new BufferDescription()
-                    {
-                        SizeInBytes = bufferSize,
-                        Usage = ResourceUsage.Default,
-                        BindFlags = BindFlags.None
-                    };
+                // GPU cihazını oluştur
+                device = new Device(DriverType.Hardware, DeviceCreationFlags.None);
+                var context = device.ImmediateContext;
 
-                    using (var bufferA = new SharpDX.Direct3D11.Buffer(device, bufferDesc))
-                    using (var bufferB = new SharpDX.Direct3D11.Buffer(device, bufferDesc))
+                int bufferSize = 128 * 1024 * 1024;
+                var bufferDesc = new BufferDescription()
+                {
+                    SizeInBytes = bufferSize,
+                    Usage = ResourceUsage.Default,
+                    BindFlags = BindFlags.None
+                };
+
+                using (var bufferA = new SharpDX.Direct3D11.Buffer(device, bufferDesc))
+                using (var bufferB = new SharpDX.Direct3D11.Buffer(device, bufferDesc))
+                {
+                    while (!token.IsCancellationRequested)
                     {
-                        while (!token.IsCancellationRequested)
+                        // 200 yerine 100 periyot yapıp daha sık token kontrolü sağlıyoruz
+                        for (int i = 0; i < 100; i++)
                         {
-                            for (int i = 0; i < 200; i++) context.CopyResource(bufferA, bufferB);
-                            context.Flush();
-                            Thread.Sleep(1);
+                            if (token.IsCancellationRequested) break;
+                            context.CopyResource(bufferA, bufferB);
                         }
+
+                        context.Flush();
+                        // GPU'nun komutları işlemesi için çok kısa bir bekleme (UI'ı rahatlatır)
+                        Thread.Sleep(10);
                     }
+
+                    // Döngüden çıkıldığında GPU komutlarını temizle
+                    context.ClearState();
+                    context.Flush();
                 }
             }
-            catch { /* Hatalar sessizce geçilebilir */ }
+            catch { }
+            finally
+            {
+                // Cihazı tamamen serbest bırakıyoruz, bu yükü anında düşürür
+                device?.Dispose();
+            }
         }
 
         private void UpdateSensors()
         {
-            foreach (var hardware in _computer.Hardware.Where(h => h.HardwareType == HardwareType.GpuNvidia))
+            // Update işlemini Dispatcher dışında yapıp sadece UI güncellemeyi içeri alıyoruz
+            foreach (var hardware in _computer.Hardware.Where(h => h.HardwareType == HardwareType.GpuNvidia || h.HardwareType == HardwareType.GpuAmd))
             {
                 hardware.Update();
                 foreach (var sensor in hardware.Sensors)
@@ -101,13 +119,13 @@ namespace HardwareMonitor
                     {
                         float val = sensor.Value ?? 0;
                         _temps.Add(val);
-                        TxtCurrentTemp.Text = $"{Math.Round(val, 1)}°C";
+                        Dispatcher.Invoke(() => TxtCurrentTemp.Text = $"{Math.Round(val, 1)}°C");
                     }
-                    if (sensor.SensorType == SensorType.Load && sensor.Name.Contains("Core"))
+                    if (sensor.SensorType == SensorType.Load && (sensor.Name.Contains("Core") || sensor.Name.Contains("Usage")))
                     {
                         float val = sensor.Value ?? 0;
                         _loads.Add(val);
-                        TxtCurrentLoad.Text = $"Yük: %{Math.Round(val, 1)}";
+                        Dispatcher.Invoke(() => TxtCurrentLoad.Text = $"Yük: %{Math.Round(val, 1)}");
                     }
                 }
             }
@@ -115,11 +133,14 @@ namespace HardwareMonitor
 
         private void StopTest()
         {
-            _cts?.Cancel();
+            if (_cts != null && !_cts.IsCancellationRequested)
+            {
+                _cts.Cancel();
+            }
+
             BtnStart.IsEnabled = true;
             BtnStop.IsEnabled = false;
 
-            // Sonuçları Panelde Göster
             if (_temps.Count > 0 && _loads.Count > 0)
             {
                 float maxT = _temps.Max();
@@ -128,6 +149,9 @@ namespace HardwareMonitor
                 GpuResultCard.Visibility = Visibility.Visible;
                 TxtGpuFinalResult.Text = $"Max Sıcaklık: {maxT:0.0}°C | Max Kullanım Oranı: %{maxL:0}";
             }
+
+            // Sensörleri son bir kez güncelle ki yükün düştüğü görülsün
+            UpdateSensors();
         }
 
         private void BtnStop_Click(object sender, RoutedEventArgs e) => StopTest();
