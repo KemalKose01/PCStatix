@@ -18,7 +18,7 @@ using System.Windows.Threading;
 
 namespace HardwareMonitor
 {
-    // CpuCoreInfo sınıfı (Progressbar için LoadValue eklendi)
+
     public class CpuCoreInfo
     {
         public string Name { get; set; } = "";
@@ -56,7 +56,7 @@ namespace HardwareMonitor
             _timer.Start();
         }
 
-        // --- PENCERE BUTONLARI ---
+
         private void TopBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (e.ChangedButton == MouseButton.Left)
@@ -73,7 +73,7 @@ namespace HardwareMonitor
             WindowState = (WindowState == WindowState.Maximized) ? WindowState.Normal : WindowState.Maximized;
         }
 
-        // --- VERİ OKUMA ---
+
         private void RefreshAll()
         {
             ReadCpu();
@@ -87,7 +87,7 @@ namespace HardwareMonitor
         {
             try
             {
-                // Windows Performance Counter kullanarak iGPU verisi çekme denemesi
+
                 if (PerformanceCounterCategory.Exists("GPU Engine"))
                 {
                     var category = new PerformanceCounterCategory("GPU Engine");
@@ -95,13 +95,13 @@ namespace HardwareMonitor
                     _igpuCounters.Clear();
                     foreach (var name in instances)
                     {
-                        // Genellikle "engtype_3d" 3D yükünü temsil eder
+
                         if (name.ToLower().Contains("engtype_3d"))
                         {
                             _igpuCounters.Add(new PerformanceCounter("GPU Engine", "Utilization Percentage", name));
                         }
                     }
-                    // İlk okuma her zaman 0 döner, bir kez çalıştırıyoruz
+
                     foreach (var c in _igpuCounters) c.NextValue();
                     TxtIGpuName.Text = "Integrated GPU";
                 }
@@ -168,16 +168,50 @@ namespace HardwareMonitor
 
         private void ReadIGpu()
         {
-            if (_igpuCounters.Count == 0) { TxtIGpuLoad.Text = "Kullanım: %0"; return; }
+           
+            if (_igpuCounters == null || _igpuCounters.Count == 0)
+            {
+                TxtIGpuLoad.Text = "Kullanım: %0";
+                return;
+            }
+
             float total = 0;
+
             try
             {
-                foreach (var c in _igpuCounters) total += c.NextValue();
-            }
-            catch { } // Sayaç hatası olursa yoksay
+                var snapshot = _igpuCounters.ToList();
 
-            if (total > 100) total = 100;
-            TxtIGpuLoad.Text = $"Kullanım: %{total:0}";
+                foreach (var counter in snapshot)
+                {
+                    try
+                    {
+                       
+                        total += counter.NextValue();
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        
+                        _igpuCounters.Remove(counter);
+                        counter.Dispose();
+                    }
+                    catch (Exception)
+                    {
+                       
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                
+            }
+
+            
+            total = Math.Min(100, total);
+
+           
+            Dispatcher.Invoke(() => {
+                TxtIGpuLoad.Text = $"Kullanım: %{total:0}";
+            });
         }
 
         private void ReadMemory()
@@ -209,24 +243,6 @@ namespace HardwareMonitor
             catch { }
         }
 
-        // --- EKSİK OLAN METOTLAR BURAYA EKLENDİ ---
-
-        // CPU Test Butonu Tıklanınca
-        private void BtnCpuTest_Click(object sender, RoutedEventArgs e)
-        {
-            MessageBox.Show("CPU Stress Testi başlatılacak. (Henüz kodlanmadı)", "Bilgi", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-
-        // GPU Test Butonu Tıklanınca
-        private void BtnGpuTest_Click(object sender, RoutedEventArgs e)
-        {
-            MessageBox.Show("GPU Stress Testi başlatılacak. (Henüz kodlanmadı)", "Bilgi", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-
-        // Disk Test Butonu Tıklanınca
-        private void BtnDiskTest_Click(object sender, RoutedEventArgs e)
-        {
-            MessageBox.Show("Disk I/O Testi başlatılacak. (Henüz kodlanmadı)", "Bilgi", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
     }
 }
+        
