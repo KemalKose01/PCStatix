@@ -49,7 +49,7 @@
                         <TextBlock Text="Test İlerlemesi" Foreground="#7f8c8d" FontSize="12" HorizontalAlignment="Left"/>
                         <TextBlock x:Name="TxtTimer" Text="45s" Foreground="White" FontWeight="Bold" HorizontalAlignment="Right"/>
                     </Grid>
-                    <ProgressBar x:Name="TestProgressBar" Height="10" Minimum="0" Maximum="60" Background="#333" Foreground="#e74c3c" Margin="0,5"/>
+                    <ProgressBar x:Name="TestProgressBar" Height="10" Minimum="0" Maximum="45" Background="#333" Foreground="#e74c3c" Margin="0,5"/>
                 </StackPanel>
 
                 <Border x:Name="GpuResultCard" Visibility="Collapsed" Background="#1c2833" BorderBrush="#34495e" BorderThickness="1" CornerRadius="12" Padding="20" Margin="0,0,0,20">
