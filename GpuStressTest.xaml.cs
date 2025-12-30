@@ -29,31 +29,42 @@ namespace HardwareMonitor
         {
             ResetUI();
             _cts = new CancellationTokenSource();
+            var token = _cts.Token;
 
-          
-            _ = Task.Run(() => RunD3D11Stress(_cts.Token), _cts.Token);
+            
+            _ = Task.Run(() => RunD3D11Stress(token), token);
 
             try
             {
-                for (int i = 0; i <= 60; i++)
+               
+                for (int i = 0; i <= 45; i++)
                 {
-                    if (_cts.Token.IsCancellationRequested) break;
+                    if (token.IsCancellationRequested) break;
+
                     TestProgressBar.Value = i;
-                    TxtTimer.Text = $"{60 - i}s";
+                    TxtTimer.Text = $"{45 - i}s";
                     UpdateSensors();
                     await Task.Delay(1000);
                 }
             }
-            finally { StopTest(); }
+            finally
+            {
+                StopTest();
+            }
         }
 
         private void UpdateSensors()
         {
+         
             foreach (var hw in _computer.Hardware.Where(h => h.HardwareType == HardwareType.GpuNvidia || h.HardwareType == HardwareType.GpuAmd))
             {
                 hw.Update();
                 var temp = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Temperature)?.Value ?? 0;
-                var load = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Load && s.Name.Contains("Core"))?.Value ?? 0;
+
+              
+                var loadSensor = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Load &&
+                                 (s.Name.Contains("Core") || s.Name.Contains("GPU Load") || s.Name.Contains("Video")));
+                var load = loadSensor?.Value ?? 0;
 
                 if (temp > _maxTemp) _maxTemp = temp;
                 if (load > _maxLoad) _maxLoad = load;
@@ -61,7 +72,7 @@ namespace HardwareMonitor
                 TxtCurrentTemp.Text = $"{temp:0.0}°C";
                 TxtCurrentLoad.Text = $"%{load:0}";
 
-               
+              
                 float p = Math.Max(0, Math.Min(1, (temp - 40) / 45));
                 TxtCurrentTemp.Foreground = new SolidColorBrush(Color.FromRgb((byte)(255 * p), (byte)(255 * (1 - p)), 0));
             }
@@ -69,12 +80,28 @@ namespace HardwareMonitor
 
         private void StopTest()
         {
-            _cts?.Cancel();
-            BtnStart.IsEnabled = true;
-            BtnStop.IsEnabled = false;
+            if (_cts != null && !_cts.IsCancellationRequested) _cts.Cancel();
 
+            Dispatcher.Invoke(() => {
+                BtnStart.IsEnabled = true;
+                BtnStop.IsEnabled = false;
+                BtnStart.Visibility = Visibility.Visible;
+                BtnStop.Visibility = Visibility.Visible;
+
+                ShowReport();
+
+              
+                TxtCurrentTemp.Text = "--°C";
+                TxtCurrentTemp.Foreground = Brushes.White;
+                TxtCurrentLoad.Text = "%--";
+                TxtTimer.Text = "45s";
+                TestProgressBar.Value = 0;
+            });
+        }
+
+        private void ShowReport()
+        {
             string gpuName = GetDedicatedGpuName();
-
             try
             {
                 using (var db = new PcStatixContext())
@@ -82,7 +109,6 @@ namespace HardwareMonitor
                     db.SaveGpuData(gpuName, (int)_maxTemp);
                     string health = db.GpuHealth(db.GetAverageGpuTemp(gpuName), _maxTemp);
 
-                  
                     TxtGpuNameResult.Text = $"Ekran Kartı: {gpuName}";
                     TxtGpuStatsResult.Text = $"Maks Isı: {_maxTemp:0.0}°C | Maks Yük: %{_maxLoad:0}";
                     TxtGpuHealthResult.Text = health;
@@ -90,46 +116,68 @@ namespace HardwareMonitor
                     GpuResultCard.Visibility = Visibility.Visible;
                 }
             }
-            catch {}
-
-           
-            TxtCurrentTemp.Text = "--°C";
-            TxtCurrentTemp.Foreground = Brushes.White;
-            TxtCurrentLoad.Text = "%--";
-            TxtTimer.Text = "60s";
-            TestProgressBar.Value = 0;
+            catch { }
         }
 
         private void ResetUI()
         {
             GpuResultCard.Visibility = Visibility.Collapsed;
-            _maxTemp = 0; _maxLoad = 0;
-            BtnStart.IsEnabled = false; BtnStop.IsEnabled = true;
+            _maxTemp = 0;
+            _maxLoad = 0;
+            BtnStart.IsEnabled = false;
+            BtnStop.IsEnabled = true;
         }
 
         private string GetDedicatedGpuName()
         {
             var gpu = _computer.Hardware.FirstOrDefault(h => (h.HardwareType == HardwareType.GpuNvidia || h.HardwareType == HardwareType.GpuAmd)
-                      && !h.Name.ToLower().Contains("uhd") && !h.Name.ToLower().Contains("graphics"));
+                      && !h.Name.ToLower().Contains("uhd") && !h.Name.ToLower().Contains("graphics") && !h.Name.ToLower().Contains("intel"));
             return gpu?.Name ?? "Harici GPU";
+        }
+
+        
+        private SharpDX.DXGI.Adapter GetDedicatedAdapter()
+        {
+            using (var factory = new SharpDX.DXGI.Factory1())
+            {
+                foreach (var adapter in factory.Adapters)
+                {
+                    string name = adapter.Description.Description.ToLower();
+                    if (!name.Contains("intel") && !name.Contains("uhd") && !name.Contains("graphics"))
+                    {
+                        return adapter;
+                    }
+                }
+                return factory.Adapters.FirstOrDefault();
+            }
         }
 
         private void RunD3D11Stress(CancellationToken token)
         {
             try
             {
-                using (var device = new Device(DriverType.Hardware, DeviceCreationFlags.None))
+                var targetAdapter = GetDedicatedAdapter();
+              
+                using (var device = new Device(targetAdapter, DeviceCreationFlags.None))
                 {
                     var context = device.ImmediateContext;
-                    var bufferDesc = new BufferDescription { SizeInBytes = 64 * 1024 * 1024, Usage = ResourceUsage.Default, BindFlags = BindFlags.None };
+                   
+                    var bufferDesc = new BufferDescription
+                    {
+                        SizeInBytes = 128 * 1024 * 1024,
+                        Usage = ResourceUsage.Default,
+                        BindFlags = BindFlags.None
+                    };
+
                     using (var bA = new SharpDX.Direct3D11.Buffer(device, bufferDesc))
                     using (var bB = new SharpDX.Direct3D11.Buffer(device, bufferDesc))
                     {
                         while (!token.IsCancellationRequested)
                         {
-                            for (int i = 0; i < 100; i++) context.CopyResource(bA, bB);
+                            
+                            for (int i = 0; i < 200; i++) context.CopyResource(bA, bB);
                             context.Flush();
-                            Thread.Sleep(10);
+                            Thread.Sleep(1);
                         }
                     }
                 }
