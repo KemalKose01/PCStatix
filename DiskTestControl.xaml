@@ -1,28 +1,95 @@
-﻿<UserControl x:Class="HardwareMonitor.DiskTestControl"
+<UserControl x:Class="HardwareMonitor.DiskStressTest"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Foreground="White">
-    <StackPanel Margin="10">
-        <TextBlock Text="Disk Hız Testi ve Sağlık Durumu" Foreground="#FF40E0D0" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center"/>
-        <GroupBox Header="Disk Durumu" BorderBrush="Orange" Foreground="White">
-            <StackPanel Margin="10">
-                <TextBlock x:Name="TxtDiskHealth" Text="Sağlık: %--" Foreground="Lime" FontSize="16" FontWeight="Bold"/>
-               
-            </StackPanel>
-        </GroupBox>
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignHeight="450" d:DesignWidth="600">
 
-        <GroupBox Header="Anlık Aktivite" BorderBrush="Cyan" Foreground="White" Margin="0,10,0,0">
-            <StackPanel Margin="10">
-                <TextBlock x:Name="TxtLiveSpeed" Text="Okuma: 0 MB/s | Yazma: 0 MB/s" Foreground="Cyan"/>
-            </StackPanel>
-        </GroupBox>
+    <UserControl.Resources>
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" CornerRadius="20" Background="{TemplateBinding Background}" BorderThickness="1" BorderBrush="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Margin" Value="1"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#444"/>
+                                <Setter Property="Foreground" Value="#888"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
 
-        <GroupBox Header="Hız Testi" BorderBrush="Yellow" Foreground="White" Margin="0,10,0,0">
-            <StackPanel Margin="10">
-                <Button x:Name="BtnStartTest" Content="TESTİ BAŞLAT" Click="BtnStartTest_Click" Background="#222" Foreground="White" Height="30"/>
-                <ProgressBar x:Name="PbTestProgress" Height="10" Margin="0,10" Maximum="100"/>
-                <TextBlock x:Name="TxtTestResult" Text="Sonuç: --" HorizontalAlignment="Center" FontWeight="Bold"/>
+    <Grid Background="#121212">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Margin="0,30,0,10" Padding="10">
+            <StackPanel>
+                <TextBlock Text="DISK PERFORMANCE TEST" Foreground="#FFAA00" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center">
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="#FFAA00" BlurRadius="10" ShadowDepth="0" Opacity="0.4"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+                <TextBlock x:Name="TxtDiskHealth" Text="Sağlık: Analiz Ediliyor..." Foreground="Lime" FontSize="12" HorizontalAlignment="Center" Margin="0,5,0,0"/>
             </StackPanel>
-        </GroupBox>
-    </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="1" VerticalAlignment="Center" Margin="40,0">
+            <Border Background="#1e1e1e" CornerRadius="15" Padding="30">
+                <Border.Effect>
+                    <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="5" Opacity="0.5"/>
+                </Border.Effect>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                        <TextBlock Text="ANLIK YAZMA" Foreground="#95a5a6" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="TxtLiveWrite" Text="0 MB/s" FontSize="36" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Border Grid.Column="1" Width="1" Background="#333" Margin="20,5"/>
+
+                    <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                        <TextBlock Text="ANLIK OKUMA" Foreground="#95a5a6" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="TxtLiveRead" Text="0 MB/s" FontSize="36" Foreground="#FFAA00" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <StackPanel Grid.Row="2" Margin="40,0,40,40">
+            <TextBlock x:Name="TxtTestResult" Text="10GB Test Sonucu: Bekleniyor..." Foreground="#7f8c8d" FontSize="12" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+
+            <ProgressBar x:Name="PbTestProgress" Height="8" Minimum="0" Maximum="100" Background="#333" Foreground="#FFAA00" BorderThickness="0">
+                <ProgressBar.Clip>
+                    <RectangleGeometry Rect="0,0,520,8" RadiusX="4" RadiusY="4"/>
+                </ProgressBar.Clip>
+            </ProgressBar>
+
+            <Button x:Name="BtnStartTest" Content="10GB TESTİ BAŞLAT" Click="BtnStartTest_Click" Height="45" Background="#27ae60" Margin="0,20,0,0" Style="{StaticResource ModernButton}"/>
+        </StackPanel>
+    </Grid>
 </UserControl>
