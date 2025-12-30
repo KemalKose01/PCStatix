@@ -1,185 +1,142 @@
+using HardwareMonitor.data;
 using LibreHardwareMonitor.Hardware;
-using SharpDX;
 using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
-using SharpDX.DXGI;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-// İsim çakışmasını önlemek için Device'ı tanımlıyoruz
+using System.Windows.Media;
 using Device = SharpDX.Direct3D11.Device;
 
 namespace HardwareMonitor
 {
-    public partial class GpuStressTest : UserControl
+    public partial class GpuStressTest : System.Windows.Controls.UserControl
     {
         private Computer _computer;
         private CancellationTokenSource _cts;
-        private bool _isRunning = false;
-        private List<float> _temps = new List<float>();
-        private List<float> _loads = new List<float>();
+        private float _maxTemp = 0, _maxLoad = 0;
 
         public GpuStressTest()
         {
             InitializeComponent();
             _computer = new Computer { IsGpuEnabled = true };
             _computer.Open();
-            _cts = new CancellationTokenSource(); // Initialize _cts to avoid nullability issues
         }
 
         private async void BtnStart_Click(object sender, RoutedEventArgs e)
         {
-            _isRunning = true;
+            ResetUI();
             _cts = new CancellationTokenSource();
-            BtnStart.IsEnabled = false;
-            BtnStop.IsEnabled = true;
-            _temps.Clear(); _loads.Clear();
 
-            // 1. ADIM: DirectX 11 Yükünü Arka Planda Başlat (UI'ı dondurmaz)
+          
             _ = Task.Run(() => RunD3D11Stress(_cts.Token), _cts.Token);
 
-            // 2. ADIM: Sensör ve UI Güncelleme Döngüsü
             try
             {
                 for (int i = 0; i <= 60; i++)
                 {
                     if (_cts.Token.IsCancellationRequested) break;
-
-                    // UI Güncelleme
                     TestProgressBar.Value = i;
                     TxtTimer.Text = $"{60 - i}s";
-
                     UpdateSensors();
-                    await Task.Delay(1000); // 1 saniye bekle (Donmayı önler)
+                    await Task.Delay(1000);
                 }
             }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
-            finally { StopTest(true); }
+            finally { StopTest(); }
+        }
+
+        private void UpdateSensors()
+        {
+            foreach (var hw in _computer.Hardware.Where(h => h.HardwareType == HardwareType.GpuNvidia || h.HardwareType == HardwareType.GpuAmd))
+            {
+                hw.Update();
+                var temp = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Temperature)?.Value ?? 0;
+                var load = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Load && s.Name.Contains("Core"))?.Value ?? 0;
+
+                if (temp > _maxTemp) _maxTemp = temp;
+                if (load > _maxLoad) _maxLoad = load;
+
+                TxtCurrentTemp.Text = $"{temp:0.0}°C";
+                TxtCurrentLoad.Text = $"%{load:0}";
+
+               
+                float p = Math.Max(0, Math.Min(1, (temp - 40) / 45));
+                TxtCurrentTemp.Foreground = new SolidColorBrush(Color.FromRgb((byte)(255 * p), (byte)(255 * (1 - p)), 0));
+            }
+        }
+
+        private void StopTest()
+        {
+            _cts?.Cancel();
+            BtnStart.IsEnabled = true;
+            BtnStop.IsEnabled = false;
+
+            string gpuName = GetDedicatedGpuName();
+
+            try
+            {
+                using (var db = new PcStatixContext())
+                {
+                    db.SaveGpuData(gpuName, (int)_maxTemp);
+                    string health = db.GpuHealth(db.GetAverageGpuTemp(gpuName), _maxTemp);
+
+                  
+                    TxtGpuNameResult.Text = $"Ekran Kartı: {gpuName}";
+                    TxtGpuStatsResult.Text = $"Maks Isı: {_maxTemp:0.0}°C | Maks Yük: %{_maxLoad:0}";
+                    TxtGpuHealthResult.Text = health;
+                    TxtGpuHealthResult.Foreground = health.Contains("Sağlıklı") ? Brushes.LimeGreen : Brushes.OrangeRed;
+                    GpuResultCard.Visibility = Visibility.Visible;
+                }
+            }
+            catch {}
+
+           
+            TxtCurrentTemp.Text = "--°C";
+            TxtCurrentTemp.Foreground = Brushes.White;
+            TxtCurrentLoad.Text = "%--";
+            TxtTimer.Text = "60s";
+            TestProgressBar.Value = 0;
+        }
+
+        private void ResetUI()
+        {
+            GpuResultCard.Visibility = Visibility.Collapsed;
+            _maxTemp = 0; _maxLoad = 0;
+            BtnStart.IsEnabled = false; BtnStop.IsEnabled = true;
+        }
+
+        private string GetDedicatedGpuName()
+        {
+            var gpu = _computer.Hardware.FirstOrDefault(h => (h.HardwareType == HardwareType.GpuNvidia || h.HardwareType == HardwareType.GpuAmd)
+                      && !h.Name.ToLower().Contains("uhd") && !h.Name.ToLower().Contains("graphics"));
+            return gpu?.Name ?? "Harici GPU";
         }
 
         private void RunD3D11Stress(CancellationToken token)
         {
             try
             {
-                // Donanım cihazını oluştur (Hardware zorlaması önemli)
                 using (var device = new Device(DriverType.Hardware, DeviceCreationFlags.None))
                 {
                     var context = device.ImmediateContext;
-
-                    // GPU'yu yormak için devasa bir Buffer (128 MB) oluşturuyoruz
-                    int bufferSize = 128 * 1024 * 1024;
-                    var bufferDesc = new BufferDescription()
-                    {
-                        SizeInBytes = bufferSize,
-                        Usage = ResourceUsage.Default,
-                        BindFlags = BindFlags.None,
-                        CpuAccessFlags = CpuAccessFlags.None,
-                        OptionFlags = ResourceOptionFlags.None
-                    };
-
-                    using (var bufferA = new SharpDX.Direct3D11.Buffer(device, bufferDesc))
-                    using (var bufferB = new SharpDX.Direct3D11.Buffer(device, bufferDesc))
+                    var bufferDesc = new BufferDescription { SizeInBytes = 64 * 1024 * 1024, Usage = ResourceUsage.Default, BindFlags = BindFlags.None };
+                    using (var bA = new SharpDX.Direct3D11.Buffer(device, bufferDesc))
+                    using (var bB = new SharpDX.Direct3D11.Buffer(device, bufferDesc))
                     {
                         while (!token.IsCancellationRequested)
                         {
-                            // RTX 4050'nin bellek yolunu (Bus) ve Copy motorunu meşgul ediyoruz
-                            for (int i = 0; i < 200; i++)
-                            {
-                                // Veriyi sürekli GPU içinde bir yerden bir yere taşıyoruz
-                                context.CopyResource(bufferA, bufferB);
-                            }
-
-                            // Flush komutu kartın "uykuya dalmasını" engeller
+                            for (int i = 0; i < 100; i++) context.CopyResource(bA, bB);
                             context.Flush();
-
-                            // UI'ın (Bar ve Sayı) donmaması için çok kısa bir nefes
-                            Thread.Sleep(1);
+                            Thread.Sleep(10);
                         }
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                Dispatcher.Invoke(() => MessageBox.Show("GPU SDK Hatası: " + ex.Message));
-            }
-        }
-        private void UpdateSensors()
-        {
-            foreach (var hardware in _computer.Hardware)
-            {
-                if (hardware.HardwareType == HardwareType.GpuNvidia)
-                {
-                    hardware.Update();
-                    foreach (var sensor in hardware.Sensors)
-                    {
-                        if (sensor.SensorType == SensorType.Temperature)
-                        {
-                            _temps.Add(sensor.Value ?? 0);
-                            TxtCurrentTemp.Text = $"{Math.Round(sensor.Value ?? 0, 1)}°C";
-                        }
-                        if (sensor.SensorType == SensorType.Load && sensor.Name.Contains("Core"))
-                        {
-                            _loads.Add(sensor.Value ?? 0);
-                            TxtCurrentLoad.Text = $"Yük: %{Math.Round(sensor.Value ?? 0, 1)}";
-                        }
-                    }
-                }
-            }
+            catch { }
         }
 
-        private void StopTest(bool showReport)
-        {
-            _isRunning = false;
-            _cts?.Cancel();
-            BtnStart.IsEnabled = true;
-            BtnStop.IsEnabled = false;
-
-            if (showReport && _temps.Count > 0)
-            {
-                // Maksimum değerleri alıyoruz
-                double maxTemp = _temps.Max();
-                double maxLoad = _loads.Max();
-
-                string durum;
-                string teşhis;
-
-                // Sıcaklık Analiz Mantığı
-                if (maxTemp < 80)
-                {
-                    durum = "TAMİR GEREKLİ DEĞİL";
-                    teşhis = "Kartınız sağlıklı çalışıyor. Soğutma performansı yeterli.";
-                }
-                else if (maxTemp >= 80 && maxTemp < 90)
-                {
-                    durum = "TAMİR GEREKLİ DEĞİL (UYARI)";
-                    teşhis = "Sıcaklık yüksek. Kasa içi hava akışını kontrol edin veya fanları temizleyin.";
-                }
-                else if (maxTemp >= 90 && maxTemp < 100)
-                {
-                    durum = "TAMİR GEREKLİ";
-                    teşhis = "Kritik Sıcaklık! Muhtemelen TERMAL MACUN kurumuş veya FANLARDA devir kaybı var.";
-                }
-                else // 100 derece ve üzeri
-                {
-                    durum = "ACİL TAMİR GEREKLİ";
-                    teşhis = "Tehlikeli Seviye! TERMAL PEDLER özelliğini yitirmiş olabilir veya SOĞUTUCU BLOK tam temas etmiyor.";
-                }
-
-                // Rapor Mesajını Oluşturma
-                string raporMesaji = $"--- GPU ANALİZ RAPORU ---\n\n" +
-                                     $"Maksimum Sıcaklık: {maxTemp}°C\n" +
-                                     $"Maksimum Yük: %{maxLoad}\n\n" +
-                                     $"DURUM: {durum}\n\n" +
-                                     $"TEKNİK ANALİZ:\n{teşhis}";
-
-                MessageBox.Show(raporMesaji, "Test Tamamlandı", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-        }
-
-        private void BtnStop_Click(object sender, RoutedEventArgs e) => StopTest(false);
+        private void BtnStop_Click(object sender, RoutedEventArgs e) => StopTest();
     }
 }
