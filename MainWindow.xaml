@@ -101,7 +101,7 @@
                         </Style>
                     </TabControl.Resources>
 
-                    <TabItem Header="MONITOR">
+                    <TabItem Header="BİLGİ İZLEME">
                         <Grid Margin="20,10,20,20">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="1.2*"/>
