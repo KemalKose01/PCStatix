@@ -1,42 +1,66 @@
-using LibreHardwareMonitor.Hardware;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using System.Windows.Threading;
+using System.Threading.Tasks;
+using LibreHardwareMonitor.Hardware;
+using LhmSensorType = LibreHardwareMonitor.Hardware.SensorType;
+using Microsoft.Diagnostics.Tracing;
+using Microsoft.Diagnostics.Tracing.Session;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
+using WinRT.Interop;
+
 
 namespace HardwareMonitor
 {
-
-    public class CpuCoreInfo
+    public sealed partial class MainWindow : Window
     {
-        public string Name { get; set; } = "";
-        public string Load { get; set; } = "";
-        public string Clock { get; set; } = "";
-        public int LoadValue { get; set; }
-    }
 
-    public partial class MainWindow : Window
-    {
-        private readonly Computer _computer;
-        private readonly DispatcherTimer _timer;
+        private FpsMonitor _fpsMonitor;
+        private  Computer _computer;
+        private  DispatcherTimer _timer;
         private List<PerformanceCounter> _igpuCounters = new();
+
+        private AppWindow _appWindow;
+
+        // =========================
+        // FPS
+        // =========================
+        private TraceEventSession? _fpsSession;
+        private int _frameCount;
+        private readonly Stopwatch _fpsWatch = new();
 
         public MainWindow()
         {
             InitializeComponent();
 
+            SetupWindow();
+            SetupHardwareMonitor();
+            SetupTimer();
+            StartFpsMonitor();
+            this.Closed += MainWindow_Closed;
+        }
+
+        // =========================
+        // WINDOW SETUP
+        // =========================
+        private void SetupWindow()
+        {
+            var hWnd = WindowNative.GetWindowHandle(this);
+            var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hWnd);
+            _appWindow = AppWindow.GetFromWindowId(windowId);
+
+            _appWindow.SetPresenter(AppWindowPresenterKind.Overlapped);
+        }
+
+        // =========================
+        // HARDWARE INIT
+        // =========================
+        private void SetupHardwareMonitor()
+        {
             _computer = new Computer
             {
                 IsCpuEnabled = true,
@@ -44,36 +68,88 @@ namespace HardwareMonitor
                 IsMemoryEnabled = true,
                 IsStorageEnabled = true
             };
+
             _computer.Open();
-
             InitIGpuCounter();
+        }
 
+        // =========================
+        // TIMER
+        // =========================
+        private void SetupTimer()
+        {
             _timer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(1)
             };
+
             _timer.Tick += (_, _) => RefreshAll();
             _timer.Start();
         }
 
-
-        private void TopBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        // =========================
+        // FPS MONITOR (REAL DXGI)
+        // =========================
+        private void StartFpsMonitor()
         {
-            if (e.ChangedButton == MouseButton.Left)
+            Task.Run(() =>
             {
-                if (e.ClickCount == 2) Maximize_Click(sender, e);
-                else DragMove();
-            }
+                try
+                {
+                    _fpsWatch.Start();
+
+                    using (_fpsSession = new TraceEventSession("FPSMonitorSession"))
+                    {
+                        _fpsSession.EnableProvider("Microsoft-Windows-DXGI");
+
+                        _fpsSession.Source.Dynamic.All += traceEvent =>
+                        {
+                            if (traceEvent.EventName.Contains("Present"))
+                            {
+                                _frameCount++;
+
+                                if (_fpsWatch.ElapsedMilliseconds >= 1000)
+                                {
+                                    int fps = _frameCount;
+                                    _frameCount = 0;
+                                    _fpsWatch.Restart();
+
+                                    DispatcherQueue.TryEnqueue(() =>
+                                    {
+                                        TxtFps.Text = $"FPS: {fps}";
+
+                                        if (fps >= 60)
+                                            TxtFps.Foreground =
+                                                new SolidColorBrush(Microsoft.UI.Colors.LimeGreen);
+                                        else if (fps >= 30)
+                                            TxtFps.Foreground =
+                                                new SolidColorBrush(Microsoft.UI.Colors.Orange);
+                                        else
+                                            TxtFps.Foreground =
+                                                new SolidColorBrush(Microsoft.UI.Colors.Red);
+                                    });
+                                }
+                            }
+                        };
+
+                        _fpsSession.Source.Process();
+                    }
+                }
+                catch
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        TxtFps.Text = "FPS: Admin gerekli";
+                        TxtFps.Foreground =
+                            new SolidColorBrush(Microsoft.UI.Colors.Red);
+                    });
+                }
+            });
         }
 
-        private void Close_Click(object sender, RoutedEventArgs e) => Close();
-        private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-        private void Maximize_Click(object sender, RoutedEventArgs e)
-        {
-            WindowState = (WindowState == WindowState.Maximized) ? WindowState.Normal : WindowState.Maximized;
-        }
-
-
+        // =========================
+        // REFRESH ALL
+        // =========================
         private void RefreshAll()
         {
             ReadCpu();
@@ -83,39 +159,14 @@ namespace HardwareMonitor
             ReadIGpu();
         }
 
-        private void InitIGpuCounter()
+        private void MainWindow_Closed(object sender, WindowEventArgs args)
         {
-            try
-            {
-
-                if (PerformanceCounterCategory.Exists("GPU Engine"))
-                {
-                    var category = new PerformanceCounterCategory("GPU Engine");
-                    var instances = category.GetInstanceNames();
-                    _igpuCounters.Clear();
-                    foreach (var name in instances)
-                    {
-
-                        if (name.ToLower().Contains("engtype_3d"))
-                        {
-                            _igpuCounters.Add(new PerformanceCounter("GPU Engine", "Utilization Percentage", name));
-                        }
-                    }
-
-                    foreach (var c in _igpuCounters) c.NextValue();
-                    TxtIGpuName.Text = "Integrated GPU";
-                }
-                else
-                {
-                    TxtIGpuName.Text = "iGPU (Sayaç Yok)";
-                }
-            }
-            catch
-            {
-                TxtIGpuName.Text = "iGPU (Erişim Hatası)";
-            }
+            _fpsMonitor?.Stop();
+            _computer?.Close();
         }
-
+        // =========================
+        // CPU
+        // =========================
         private void ReadCpu()
         {
             foreach (var hw in _computer.Hardware.Where(h => h.HardwareType == HardwareType.Cpu))
@@ -123,126 +174,135 @@ namespace HardwareMonitor
                 hw.Update();
                 TxtCpuName.Text = hw.Name;
 
-                var cores = new List<CpuCoreInfo>();
+                var pkgTemp = hw.Sensors.FirstOrDefault(s =>
+                    s.SensorType == LhmSensorType.Temperature &&
+                    (s.Name.Contains("Package") || s.Name.Contains("Tctl")));
 
-                var clocks = hw.Sensors.Where(s => s.SensorType == SensorType.Clock && s.Name.Contains("Core")).OrderBy(s => s.Name.Length).ThenBy(s => s.Name).ToList();
-                var loads = hw.Sensors.Where(s => s.SensorType == SensorType.Load && s.Name.Contains("Core")).OrderBy(s => s.Name.Length).ThenBy(s => s.Name).ToList();
-
-                for (int i = 0; i < clocks.Count; i++)
-                {
-                    var c = clocks[i];
-                    var l = loads.Count > i ? loads[i] : null;
-
-                    int val = l?.Value != null ? (int)l.Value : 0;
-
-                    cores.Add(new CpuCoreInfo
-                    {
-                        Name = c.Name,
-                        Load = l?.Value != null ? $"%{l.Value:0}" : "%--",
-                        Clock = c.Value != null ? $"{c.Value:0} MHz" : "--",
-                        LoadValue = val
-                    });
-                }
-                IcCpuCores.ItemsSource = cores;
-
-                var pkgTemp = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Temperature && (s.Name.Contains("Package") || s.Name.Contains("Tctl")));
-                TxtCpuTemp.Text = pkgTemp?.Value != null ? $"CPU Sıcaklığı: {pkgTemp.Value:0}°C" : "CPU Sıcaklığı: --";
+                TxtCpuTemp.Text = pkgTemp?.Value != null
+                    ? $"CPU: {pkgTemp.Value:0}°C"
+                    : "CPU: --";
             }
         }
 
+        // =========================
+        // DGPU
+        // =========================
         private void ReadDGpu()
         {
-            bool gpuFound = false;
-            foreach (var hw in _computer.Hardware.Where(h => h.HardwareType == HardwareType.GpuNvidia || h.HardwareType == HardwareType.GpuAmd))
+            foreach (var hw in _computer.Hardware.Where(h =>
+                h.HardwareType == HardwareType.GpuNvidia ||
+                h.HardwareType == HardwareType.GpuAmd))
             {
-                gpuFound = true;
                 hw.Update();
                 TxtDGpuName.Text = hw.Name;
-                var temp = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Temperature);
-                var load = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Load);
-                TxtDGpuTemp.Text = temp?.Value != null ? $"Sıcaklık: {temp.Value:0}°C" : "Sıcaklık: --";
-                TxtDGpuLoad.Text = load?.Value != null ? $"Kullanım: %{load.Value:0}" : "Kullanım: --";
+
+                var temp = hw.Sensors.FirstOrDefault(s => s.SensorType == LhmSensorType.Temperature);
+                var load = hw.Sensors.FirstOrDefault(s => s.SensorType == LhmSensorType.Load);
+
+                TxtDGpuTemp.Text = temp?.Value != null
+                    ? $"Sıcaklık: {temp.Value:0}°C"
+                    : "--";
+
+                TxtDGpuLoad.Text = load?.Value != null
+                    ? $"Kullanım: %{load.Value:0}"
+                    : "--";
             }
-            if (!gpuFound) TxtDGpuName.Text = "Harici GPU Bulunamadı";
         }
 
-        private void ReadIGpu()
-        {
-           
-            if (_igpuCounters == null || _igpuCounters.Count == 0)
-            {
-                TxtIGpuLoad.Text = "Kullanım: %0";
-                return;
-            }
-
-            float total = 0;
-
-            try
-            {
-                var snapshot = _igpuCounters.ToList();
-
-                foreach (var counter in snapshot)
-                {
-                    try
-                    {
-                       
-                        total += counter.NextValue();
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        
-                        _igpuCounters.Remove(counter);
-                        counter.Dispose();
-                    }
-                    catch (Exception)
-                    {
-                       
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                
-            }
-
-            
-            total = Math.Min(100, total);
-
-           
-            Dispatcher.Invoke(() => {
-                TxtIGpuLoad.Text = $"Kullanım: %{total:0}";
-            });
-        }
-
+        // =========================
+        // MEMORY
+        // =========================
         private void ReadMemory()
         {
             foreach (var hw in _computer.Hardware.Where(h => h.HardwareType == HardwareType.Memory))
             {
                 hw.Update();
+
                 var used = hw.Sensors.FirstOrDefault(s => s.Name == "Memory Used");
                 var avail = hw.Sensors.FirstOrDefault(s => s.Name == "Memory Available");
-                if (used?.Value == null || avail?.Value == null) return;
+
+                if (used?.Value == null || avail?.Value == null)
+                    return;
+
                 double usedGb = used.Value.Value;
                 double totalGb = usedGb + avail.Value.Value;
-                TxtRamInfo.Text = $"RAM: {usedGb:0.0} GB / {totalGb:0.0} GB";
-                PbRam.Value = (usedGb / totalGb) * 100;
+
+                TxtRamInfo.Text = $"RAM: {usedGb:0.0}/{totalGb:0.0} GB";
             }
         }
 
+        // =========================
+        // DISK
+        // =========================
         private void ReadDisk()
         {
             try
             {
                 var d = new DriveInfo("C");
                 if (!d.IsReady) return;
+
                 double total = d.TotalSize / 1073741824.0;
                 double used = (d.TotalSize - d.AvailableFreeSpace) / 1073741824.0;
-                TxtDiskInfo.Text = $"Sürücü (C:): {used:0} GB / {total:0} GB";
-                PbDisk.Value = (used / total) * 100;
+
+                TxtDiskInfo.Text = $"Disk: {used:0}/{total:0} GB";
             }
             catch { }
         }
 
+        // =========================
+        // IGPU
+        // =========================
+        private void InitIGpuCounter()
+        {
+            try
+            {
+                if (!PerformanceCounterCategory.Exists("GPU Engine"))
+                    return;
+
+                var category = new PerformanceCounterCategory("GPU Engine");
+                var instances = category.GetInstanceNames();
+
+                foreach (var name in instances)
+                {
+                    if (name.ToLower().Contains("engtype_3d"))
+                    {
+                        _igpuCounters.Add(
+                            new PerformanceCounter("GPU Engine",
+                            "Utilization Percentage",
+                            name));
+                    }
+                }
+
+                foreach (var c in _igpuCounters)
+                    c.NextValue();
+            }
+            catch { }
+        }
+
+        private void ReadIGpu()
+        {
+            float total = 0;
+
+            foreach (var counter in _igpuCounters.ToList())
+            {
+                try
+                {
+                    total += counter.NextValue();
+                }
+                catch
+                {
+                    _igpuCounters.Remove(counter);
+                    counter.Dispose();
+                }
+            }
+
+            total = Math.Min(100, total);
+            TxtIGpuLoad.Text = $"iGPU: %{total:0}";
+        }
+
+        // =========================
+        // CLEANUP
+        // =========================
+       
     }
 }
-        
