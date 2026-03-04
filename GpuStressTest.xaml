@@ -1,77 +1,156 @@
-<UserControl x:Class="HardwareMonitor.GpuStressTest"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignHeight="600" d:DesignWidth="600"
-             UseLayoutRounding="True"
-             TextOptions.TextFormattingMode="Display"
-             TextOptions.TextRenderingMode="ClearType">
+<Page
+    x:Class="HardwareMonitor.GpuStressTest"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
 
-    <UserControl.Resources>
+    <Page.Resources>
         <Style x:Key="ModernButton" TargetType="Button">
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" CornerRadius="10" Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="CornerRadius" Value="10"/>
         </Style>
-    </UserControl.Resources>
+    </Page.Resources>
 
     <Grid Background="#121212">
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="20">
-                <TextBlock Text="GPU STRES TESTİ" Foreground="#e74c3c" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,20"/>
 
-                <Border Background="#1e1e1e" CornerRadius="15" Padding="20">
-                    <UniformGrid Columns="2">
-                        <StackPanel HorizontalAlignment="Center">
-                            <TextBlock Text="SICAKLIK" Foreground="#95a5a6" FontSize="12" HorizontalAlignment="Center"/>
-                            <TextBlock x:Name="TxtCurrentTemp" Text="--°C" FontSize="42" Foreground="White" FontWeight="Bold"/>
+                <TextBlock Text="GPU STRES TESTİ"
+                           Foreground="#e74c3c"
+                           FontSize="24"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,20"/>
+
+                <!-- SENSOR CARD -->
+                <Border Background="#1e1e1e"
+                        CornerRadius="15"
+                        Padding="20">
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0"
+                                    HorizontalAlignment="Center">
+                            <TextBlock Text="SICAKLIK"
+                                       Foreground="#95a5a6"
+                                       FontSize="12"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="TxtCurrentTemp"
+                                       Text="--°C"
+                                       FontSize="42"
+                                       Foreground="White"
+                                       FontWeight="Bold"/>
                         </StackPanel>
-                        <StackPanel HorizontalAlignment="Center">
-                            <TextBlock Text="GPU YÜKÜ" Foreground="#95a5a6" FontSize="12" HorizontalAlignment="Center"/>
-                            <TextBlock x:Name="TxtCurrentLoad" Text="%--" FontSize="42" Foreground="#e74c3c" FontWeight="Bold"/>
+
+                        <StackPanel Grid.Column="1"
+                                    HorizontalAlignment="Center">
+                            <TextBlock Text="GPU YÜKÜ"
+                                       Foreground="#95a5a6"
+                                       FontSize="12"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="TxtCurrentLoad"
+                                       Text="%--"
+                                       FontSize="42"
+                                       Foreground="#e74c3c"
+                                       FontWeight="Bold"/>
                         </StackPanel>
-                    </UniformGrid>
+                    </Grid>
                 </Border>
 
+                <!-- PROGRESS -->
                 <StackPanel Margin="0,20">
                     <Grid>
-                        <TextBlock Text="Test İlerlemesi" Foreground="#7f8c8d" FontSize="12" HorizontalAlignment="Left"/>
-                        <TextBlock x:Name="TxtTimer" Text="45s" Foreground="White" FontWeight="Bold" HorizontalAlignment="Right"/>
+                        <TextBlock Text="Test İlerlemesi"
+                                   Foreground="#7f8c8d"
+                                   FontSize="12"
+                                   HorizontalAlignment="Left"/>
+
+                        <TextBlock x:Name="TxtTimer"
+                                   Text="45s"
+                                   Foreground="White"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Right"/>
                     </Grid>
-                    <ProgressBar x:Name="TestProgressBar" Height="10" Minimum="0" Maximum="45" Background="#333" Foreground="#e74c3c" Margin="0,5"/>
+
+                    <ProgressBar x:Name="TestProgressBar"
+                                 Height="10"
+                                 Minimum="0"
+                                 Maximum="45"
+                                 Margin="0,5"/>
                 </StackPanel>
 
-                <Border x:Name="GpuResultCard" Visibility="Collapsed" Background="#1c2833" BorderBrush="#34495e" BorderThickness="1" CornerRadius="12" Padding="20" Margin="0,0,0,20">
+                <!-- RESULT CARD -->
+                <Border x:Name="GpuResultCard"
+                        Visibility="Collapsed"
+                        Background="#1c2833"
+                        BorderBrush="#34495e"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="20"
+                        Margin="0,0,0,20">
+
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="GPU TEST RAPORU" Foreground="Gold" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,10"/>
-                        <TextBlock x:Name="TxtGpuNameResult" Foreground="White" FontSize="14" HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="TxtGpuStatsResult" Foreground="#bdc3c7" FontSize="13" HorizontalAlignment="Center" Margin="0,5"/>
-                        <Separator Background="#34495e" Margin="20,10"/>
-                        <TextBlock x:Name="TxtGpuHealthResult" FontSize="20" FontWeight="ExtraBold" HorizontalAlignment="Center"/>
+                        <TextBlock Text="GPU TEST RAPORU"
+                                   Foreground="Gold"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,10"/>
+
+                        <TextBlock x:Name="TxtGpuNameResult"
+                                   Foreground="White"
+                                   FontSize="14"
+                                   HorizontalAlignment="Center"/>
+
+                        <TextBlock x:Name="TxtGpuStatsResult"
+                                   Foreground="#bdc3c7"
+                                   FontSize="13"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,5"/>
+
+                        <Rectangle Margin="20,10"/>
+
+                        <TextBlock x:Name="TxtGpuHealthResult"
+                                   FontSize="20"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Border>
 
+                <!-- BUTTONS -->
                 <Grid Margin="0,10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="15"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <Button x:Name="BtnStart" Content="TESTİ BAŞLAT" Click="BtnStart_Click" Height="50" Background="#27ae60" Style="{StaticResource ModernButton}"/>
-                    <Button x:Name="BtnStop" Grid.Column="2" Content="TESTİ DURDUR" Click="BtnStop_Click" Height="50" Background="#c0392b" IsEnabled="False" Style="{StaticResource ModernButton}"/>
+
+                    <Button x:Name="BtnStart"
+                            Content="TESTİ BAŞLAT"
+                            Click="BtnStart_Click"
+                            Height="50"
+                            Background="#27ae60"
+                            Style="{StaticResource ModernButton}"/>
+
+                    <Button x:Name="BtnStop"
+                            Grid.Column="2"
+                            Content="TESTİ DURDUR"
+                            Click="BtnStop_Click"
+                            Height="50"
+                            Background="#c0392b"
+                            IsEnabled="False"
+                            Style="{StaticResource ModernButton}"/>
                 </Grid>
+
             </StackPanel>
         </ScrollViewer>
     </Grid>
-</UserControl>
+</Page>
