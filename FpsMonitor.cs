@@ -5,48 +5,61 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
-public class FpsMonitor
+namespace HardwareMonitor
 {
-    private TraceEventSession? _session;
-    private int _frameCount;
-    private Stopwatch _watch = new Stopwatch();
-
-    public event Action<int>? OnFpsUpdated;
-
-    public void Start()
+    public class FpsMonitor
     {
-        Task.Run(() =>
+        private TraceEventSession? _session;
+        private int _frameCount;
+        private Stopwatch _watch = new Stopwatch();
+
+        public event Action<int>? OnFpsUpdated;
+
+        public void Start()
         {
-            _watch.Start();
-
-            using (_session = new TraceEventSession("FPSMonitorSession"))
+            Task.Run(() =>
             {
-                _session.EnableProvider("Microsoft-Windows-DXGI");
+                _watch.Start();
 
-                _session.Source.Dynamic.All += traceEvent =>
+                try
                 {
-                    if (traceEvent.EventName.Contains("Present"))
+                    _session = new TraceEventSession(
+                        "FPSMonitorSession_" + Process.GetCurrentProcess().Id);
+
+                    _session.EnableProvider("Microsoft-Windows-DXGI");
+
+                    _session.Source.Dynamic.All += traceEvent =>
                     {
-                        _frameCount++;
-
-                        if (_watch.ElapsedMilliseconds >= 1000)
+                        if (traceEvent.EventName.Contains("Present"))
                         {
-                            int fps = _frameCount;
-                            _frameCount = 0;
-                            _watch.Restart();
+                            Interlocked.Increment(ref _frameCount);
 
-                            OnFpsUpdated?.Invoke(fps);
+                            if (_watch.ElapsedMilliseconds >= 1000)
+                            {
+                                int fps = Interlocked.Exchange(ref _frameCount, 0);
+                                _watch.Restart();
+
+                                OnFpsUpdated?.Invoke(fps);
+                            }
                         }
-                    }
-                };
+                    };
 
-                _session.Source.Process();
+                    _session.Source.Process();
+                }
+                catch
+                {
+                    // sesson açılamazsa crash engelle
+                }
+            });
+        }
+
+        public void Stop()
+        {
+            try
+            {
+                _session?.Dispose();
             }
-        });
-    }
-
-    public void Stop()
-    {
-        _session?.Dispose();
+            catch { }
+        }
     }
 }
