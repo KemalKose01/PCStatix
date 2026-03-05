@@ -3,35 +3,23 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 using LibreHardwareMonitor.Hardware;
 using LhmSensorType = LibreHardwareMonitor.Hardware.SensorType;
-using Microsoft.Diagnostics.Tracing;
-using Microsoft.Diagnostics.Tracing.Session;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using WinRT.Interop;
-
+using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace HardwareMonitor
 {
     public sealed partial class MainWindow : Window
     {
-
         private FpsMonitor _fpsMonitor;
-        private  Computer _computer;
-        private  DispatcherTimer _timer;
+        private Computer _computer;
+        private DispatcherTimer _timer;
         private List<PerformanceCounter> _igpuCounters = new();
-
         private AppWindow _appWindow;
-
-        // =========================
-        // FPS
-        // =========================
-        private TraceEventSession? _fpsSession;
-        private int _frameCount;
-        private readonly Stopwatch _fpsWatch = new();
 
         public MainWindow()
         {
@@ -40,12 +28,14 @@ namespace HardwareMonitor
             SetupWindow();
             SetupHardwareMonitor();
             SetupTimer();
-            StartFpsMonitor();
+
+            SetupFpsMonitor();
+
             this.Closed += MainWindow_Closed;
         }
 
         // =========================
-        // WINDOW SETUP
+        // WINDOW
         // =========================
         private void SetupWindow()
         {
@@ -70,6 +60,7 @@ namespace HardwareMonitor
             };
 
             _computer.Open();
+
             InitIGpuCounter();
         }
 
@@ -78,73 +69,37 @@ namespace HardwareMonitor
         // =========================
         private void SetupTimer()
         {
-            _timer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromSeconds(1)
-            };
+            _timer = new DispatcherTimer();
+            _timer.Interval = TimeSpan.FromSeconds(1);
 
             _timer.Tick += (_, _) => RefreshAll();
+
             _timer.Start();
         }
 
         // =========================
-        // FPS MONITOR (REAL DXGI)
+        // FPS MONITOR
         // =========================
-        private void StartFpsMonitor()
+        private void SetupFpsMonitor()
         {
-            Task.Run(() =>
+            _fpsMonitor = new FpsMonitor();
+
+            _fpsMonitor.OnFpsUpdated += fps =>
             {
-                try
+                DispatcherQueue.TryEnqueue(() =>
                 {
-                    _fpsWatch.Start();
+                    TxtFps.Text = $"FPS: {fps}";
 
-                    using (_fpsSession = new TraceEventSession("FPSMonitorSession"))
-                    {
-                        _fpsSession.EnableProvider("Microsoft-Windows-DXGI");
+                    if (fps >= 60)
+                        TxtFps.Foreground = new SolidColorBrush(Microsoft.UI.Colors.LimeGreen);
+                    else if (fps >= 30)
+                        TxtFps.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Orange);
+                    else
+                        TxtFps.Foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
+                });
+            };
 
-                        _fpsSession.Source.Dynamic.All += traceEvent =>
-                        {
-                            if (traceEvent.EventName.Contains("Present"))
-                            {
-                                _frameCount++;
-
-                                if (_fpsWatch.ElapsedMilliseconds >= 1000)
-                                {
-                                    int fps = _frameCount;
-                                    _frameCount = 0;
-                                    _fpsWatch.Restart();
-
-                                    DispatcherQueue.TryEnqueue(() =>
-                                    {
-                                        TxtFps.Text = $"FPS: {fps}";
-
-                                        if (fps >= 60)
-                                            TxtFps.Foreground =
-                                                new SolidColorBrush(Microsoft.UI.Colors.LimeGreen);
-                                        else if (fps >= 30)
-                                            TxtFps.Foreground =
-                                                new SolidColorBrush(Microsoft.UI.Colors.Orange);
-                                        else
-                                            TxtFps.Foreground =
-                                                new SolidColorBrush(Microsoft.UI.Colors.Red);
-                                    });
-                                }
-                            }
-                        };
-
-                        _fpsSession.Source.Process();
-                    }
-                }
-                catch
-                {
-                    DispatcherQueue.TryEnqueue(() =>
-                    {
-                        TxtFps.Text = "FPS: Admin gerekli";
-                        TxtFps.Foreground =
-                            new SolidColorBrush(Microsoft.UI.Colors.Red);
-                    });
-                }
-            });
+            _fpsMonitor.Start();
         }
 
         // =========================
@@ -159,15 +114,10 @@ namespace HardwareMonitor
             ReadIGpu();
         }
 
-        private void MainWindow_Closed(object sender, WindowEventArgs args)
-        {
-            _fpsMonitor?.Stop();
-            _computer?.Close();
-        }
         // =========================
         // CPU
         // =========================
-        private void ReadCpu()
+        private void ReadCpu() 
         {
             foreach (var hw in _computer.Hardware.Where(h => h.HardwareType == HardwareType.Cpu))
             {
@@ -194,6 +144,7 @@ namespace HardwareMonitor
                 h.HardwareType == HardwareType.GpuAmd))
             {
                 hw.Update();
+
                 TxtDGpuName.Text = hw.Name;
 
                 var temp = hw.Sensors.FirstOrDefault(s => s.SensorType == LhmSensorType.Temperature);
@@ -210,7 +161,7 @@ namespace HardwareMonitor
         }
 
         // =========================
-        // MEMORY
+        // RAM
         // =========================
         private void ReadMemory()
         {
@@ -239,7 +190,9 @@ namespace HardwareMonitor
             try
             {
                 var d = new DriveInfo("C");
-                if (!d.IsReady) return;
+
+                if (!d.IsReady)
+                    return;
 
                 double total = d.TotalSize / 1073741824.0;
                 double used = (d.TotalSize - d.AvailableFreeSpace) / 1073741824.0;
@@ -267,9 +220,10 @@ namespace HardwareMonitor
                     if (name.ToLower().Contains("engtype_3d"))
                     {
                         _igpuCounters.Add(
-                            new PerformanceCounter("GPU Engine",
-                            "Utilization Percentage",
-                            name));
+                            new PerformanceCounter(
+                                "GPU Engine",
+                                "Utilization Percentage",
+                                name));
                     }
                 }
 
@@ -297,12 +251,17 @@ namespace HardwareMonitor
             }
 
             total = Math.Min(100, total);
+
             TxtIGpuLoad.Text = $"iGPU: %{total:0}";
         }
 
         // =========================
         // CLEANUP
         // =========================
-       
+        private void MainWindow_Closed(object sender, WindowEventArgs args)
+        {
+            _fpsMonitor?.Stop();
+            _computer?.Close();
+        }
     }
 }
